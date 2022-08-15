@@ -1,0 +1,47 @@
+============================
+Allegro Software Source Code
+============================
+
+Overview
+========
+
+The Allegro software consists of two parts:
+
+- the control-software: user-mode code driving the encoding through a codec
+  interface. It can be used to drive the hardware codec, or the software
+  reference model.
+
+- the software reference model: a software implementation of the hardware
+  codec. The source code for this library is not delivered.
+
+The control-software can be used as:
+- a standalone command-line executable (see below).
+- a library, whose entry point can be found in lib_encode and lib_decode
+
+How to build the documentation
+==============================
+
+$ cd src/CtrlSW/Doxygen/
+$ ./doxygen.sh
+
+firefox Doxygen/doc/html/index.html
+
+How to build a fully-software encoder
+=====================================
+
+You need a working gcc/g++ toolchain installed.
+Just run:
+
+$ cd src/CtrlSW/
+$ make
+
+The resulting binaries will be available in the bin/ directory
+
+You can test it on a very simple configuration with the following command:
+$ ./bin/AL_Encoder -cfg test/config/encode_example.cfg
+
+User Manual
+===========
+
+The encoder user manual is available in doc/html/index.html
+
