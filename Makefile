@@ -117,8 +117,10 @@ INCLUDE_DIR := include
 HEADER_DIRS_TMP := $(sort $(dir $(wildcard $(INCLUDE_DIR)/*/)))
 HEADER_DIRS := $(HEADER_DIRS_TMP:$(INCLUDE_DIR)/%=%)
 INSTALL_HDR_PATH := ${PREFIX}/include
+INSTALL_PATH ?= /bin/
 
 install_headers:
+	mkdir -p ${INSTALL_HDR_PATH}
 	@echo $(HEADER_DIRS)
 	for dirname in $(HEADER_DIRS); do \
 		$(INSTALL) -d "$(INCLUDE_DIR)/$$dirname" "$(INSTALL_HDR_PATH)/$$dirname"; \
@@ -131,6 +133,10 @@ pack_includes:
 
 pack_defines:
 	@echo $(PACK_DEFINES)
+
+install: install_headers
+	mkdir -p ${INSTALL_PATH}
+	install -Dm 0755 bin/AL_Decoder.exe ${INSTALL_PATH}/ctrlsw_decoder
 
 true_all: $(TARGETS)
 
