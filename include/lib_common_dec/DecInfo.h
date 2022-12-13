@@ -45,6 +45,7 @@ typedef struct
   int iLevel; /*!< Stream's level */
   AL_EProfile eProfile; /*!< Stream's profile */
   AL_ESequenceMode eSequenceMode; /*!< Stream's sequence mode */
+  bool bDecodeIntraOnly;  /*!< Should the decoder process only I frames  */
 }AL_TStreamSettings;
 
 /*************************************************************************//*!
@@ -71,7 +72,7 @@ typedef struct t_InfoDecode
   AL_TCropInfo tCrop; /*!< Crop information of the current framebuffer */
   AL_EFbStorageMode eFbStorageMode; /*! frame buffer storage mode */
   AL_EPicStruct ePicStruct; /*!< structure (frame/field, top/Bottom) of the current framebuffer */
-  uint32_t uCRC; /*!< framebuffer data checksum */
+  uint32_t uCRC; /*!< framebuffer data crc */
   AL_TPosition tPos; /*!< Position of the top left decoded pixel */
 }AL_TInfoDecode;
 

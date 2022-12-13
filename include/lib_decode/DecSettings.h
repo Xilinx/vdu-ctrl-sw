@@ -55,7 +55,6 @@ typedef struct
   int iStackSize;       /*!< Size of the command stack handled by the decoder */
   int iStreamBufSize;   /*!< Size of the internal circular stream buffer (0 = default) */
   uint8_t uNumCore;     /*!< Number of core used for the decoding */
-  int8_t iInstanceId;   /*!< Instance used for decoding */
   bool bNonRealtime;    /*!< Specify is a non-realtime channel */
   uint32_t uFrameRate;  /*!< Frame rate value used if syntax element isn't present */
   uint32_t uClkRatio;   /*!< Clock ratio value used if syntax element isn't present */
@@ -65,6 +64,7 @@ typedef struct
   bool bDisableCache;   /*!< Should the decoder disable the cache */
   bool bLowLat;         /*!< Should low latency decoding be used */
   bool bForceFrameRate; /*!< Should stream frame rate be ignored and replaced by user defined one */
+  uint16_t uConcealMaxFps; /*!< Maximum frame rate to apply when stream headers are invalid or corrupted. 0 = no concealment */
   bool bFrameBufferCompression; /*!< Should internal frame buffer compression be used */
   AL_EFbStorageMode eFBStorageMode; /*!< Specifies the storage mode the decoder should use for the frame buffers*/
   AL_EDecUnit eDecUnit; /*!< Should subframe latency mode be used */
@@ -74,7 +74,6 @@ typedef struct
   bool bUseIFramesAsSyncPoint; /*!< Allow decoder to sync on I frames if configurations' nals are presents */
   bool bUseEarlyCallback; /*< Lowlat phase 2. This only makes sense with special support for hw synchro */
   AL_EDecInputMode eInputMode; /* Send stream data by decoding unit or feed the library enough data and let it find the units. */
-  bool bDecodeIntraOnly;  /*!< Should the decoder process only I frames  */
 }AL_TDecSettings;
 
 /*************************************************************************//*!
@@ -109,6 +108,5 @@ int AL_DecSettings_CheckValidity(AL_TDecSettings* pSettings, FILE* pOut);
    with IP decoder.
  *****************************************************************************/
 int AL_DecSettings_CheckCoherency(AL_TDecSettings* pSettings, FILE* pOut);
-
 /*@}*/
 

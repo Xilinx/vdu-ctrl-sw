@@ -40,10 +40,10 @@ void IntVector_Init(IntVector* self);
 void IntVector_Add(IntVector* self, int element);
 void IntVector_MoveBack(IntVector* self, int element);
 void IntVector_Remove(IntVector* self, int element);
-bool IntVector_IsIn(IntVector* self, int element);
-int IntVector_Count(IntVector* self);
+bool IntVector_IsIn(IntVector const* self, int element);
+int IntVector_Count(IntVector const* self);
 void IntVector_Revert(IntVector* self);
-void IntVector_Copy(IntVector* from, IntVector* to);
+void IntVector_Copy(IntVector const* from, IntVector* to);
 
 #define VECTOR_FOREACH(iterator, v) \
   AL_Assert((v).count <= MAX_ELEMENTS); \

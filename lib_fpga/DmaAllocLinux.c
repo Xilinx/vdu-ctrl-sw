@@ -39,10 +39,6 @@
 
 #define LOG_ALLOCATION(p)
 
-#ifndef AL_LINUX_PADDR_BASE_OFFSET
-#define AL_LINUX_PADDR_BASE_OFFSET 0
-#endif
-
 struct DmaBuffer
 {
   /* ioctl structure */
@@ -123,7 +119,7 @@ static AL_PADDR LinuxDma_GetPhysicalAddr(AL_TAllocator* pAllocator, AL_HANDLE hB
   if(!pDmaBuffer)
     return 0;
 
-  return ((AL_PADDR)(AL_LINUX_PADDR_BASE_OFFSET)) + (AL_PADDR)pDmaBuffer->info.phy_addr;
+  return (AL_PADDR)pDmaBuffer->info.phy_addr;
 }
 
 /******************************************************************************/

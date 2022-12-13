@@ -41,7 +41,7 @@ void IntVector_Add(IntVector* self, int element)
   self->count++;
 }
 
-static int find(IntVector* self, int element)
+static int find(IntVector const* self, int element)
 {
   for(int i = 0; i < self->count; i++)
     if(self->elements[i] == element)
@@ -63,12 +63,12 @@ void IntVector_Remove(IntVector* self, int element)
   self->count--;
 }
 
-bool IntVector_IsIn(IntVector* self, int element)
+bool IntVector_IsIn(IntVector const* self, int element)
 {
   return find(self, element) != -1;
 }
 
-int IntVector_Count(IntVector* self)
+int IntVector_Count(IntVector const* self)
 {
   return self->count;
 }
@@ -79,7 +79,7 @@ void IntVector_Revert(IntVector* self)
     IntVector_MoveBack(self, self->elements[i]);
 }
 
-void IntVector_Copy(IntVector* from, IntVector* to)
+void IntVector_Copy(IntVector const* from, IntVector* to)
 {
   to->count = from->count;
 

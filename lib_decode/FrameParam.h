@@ -46,7 +46,7 @@ int AL_AVC_GetFrameHeight(AL_TAvcSps const* pSPS, bool bHasFields);
 AL_EPicStruct AL_AVC_GetPicStruct(AL_TAvcSliceHdr const* pSlice);
 
 /******************************************************************************/
-void AL_HEVC_FillSliceParameters(const AL_THevcSliceHdr* pSlice, const AL_TDecCtx* pCtx, AL_TDecSliceParam* pSP, bool bConceal);
+void AL_HEVC_FillSliceParameters(const AL_THevcSliceHdr* pSlice, const AL_TDecCtx* pCtx, AL_TDecSliceParam* pSP);
 void AL_HEVC_FillPictParameters(const AL_THevcSliceHdr* pSlice, const AL_TDecCtx* pCtx, AL_TDecPicParam* pPP);
 void AL_HEVC_FillSlicePicIdRegister(const AL_THevcSliceHdr* pSlice, AL_TDecCtx* pCtx, AL_TDecPicParam* pPP, AL_TDecSliceParam* pSP);
 

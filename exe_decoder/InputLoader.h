@@ -32,7 +32,8 @@ extern "C"
 }
 #include <vector>
 #include <istream>
-#include <cassert>
+#include <stdexcept>
+#include <string>
 
 /****************************************************************************/
 struct InputLoader

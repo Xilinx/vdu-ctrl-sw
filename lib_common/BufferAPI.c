@@ -204,10 +204,13 @@ void AL_Buffer_Destroy(AL_TBuffer* hBuf)
 
   AL_Assert(pBuf->iRefCount == 0);
 
-  for(int i = 0; i < pBuf->iMetaCount; ++i)
-    AL_MetaData_Destroy(pBuf->pMeta[i]);
+  if(pBuf->pMeta)
+  {
+    for(int i = 0; i < pBuf->iMetaCount; ++i)
+      AL_MetaData_Destroy(pBuf->pMeta[i]);
 
-  Rtos_Free(pBuf->pMeta);
+    Rtos_Free(pBuf->pMeta);
+  }
 
   for(int i = 0; i < hBuf->iChunkCnt; ++i)
   {

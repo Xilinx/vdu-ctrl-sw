@@ -134,3 +134,12 @@ int16_t MinInArray(const int16_t tab[], int arraySize)
   return min;
 }
 
+/****************************************************************************/
+bool IsWindowEmpty(AL_TWindow tWindow)
+{
+  if((tWindow.tDim.iHeight == 0) || (tWindow.tDim.iWidth == 0))
+    return true;
+  else
+    return false;
+}
+

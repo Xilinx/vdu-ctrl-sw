@@ -415,7 +415,7 @@ void AL_AVC_PrepareCommand(AL_TDecCtx* pCtx, AL_TScl* pSCL, AL_TDecPicParam* pPP
 
   if(!pSlice->first_mb_in_slice)
     AL_AVC_WriteDecHwScalingList((AL_TScl const*)pSCL, pPP->ChromaMode, pBufs->tScl.tMD.pVirtualAddr);
-  AL_AVC_PictMngr_GetBuffers(&pCtx->PictMngr, pSP, pSlice, &pCtx->ListRef, &pBufs->tListVirtRef, &pBufs->tListRef, &pCtx->POC, &pCtx->MV, &pBufs->tWP, &pCtx->pRecs);
+  AL_AVC_PictMngr_GetBuffers(&pCtx->PictMngr, pSP, pSlice, (TBufferListRef const*)&pCtx->ListRef, &pBufs->tListVirtRef, &pBufs->tListRef, &pCtx->POC, &pCtx->MV, &pBufs->tWP, &pCtx->pRecs);
 
   // stock command registers in memory
   AL_TerminatePreviousCommand(pCtx, pPP, pSP, false, true);
@@ -451,7 +451,7 @@ void AL_HEVC_PrepareCommand(AL_TDecCtx* pCtx, AL_TScl* pSCL, AL_TDecPicParam* pP
 
   if(pSlice->first_slice_segment_in_pic_flag)
     AL_HEVC_WriteDecHwScalingList((const AL_TScl*)pSCL, pBufs->tScl.tMD.pVirtualAddr);
-  AL_HEVC_PictMngr_GetBuffers(&pCtx->PictMngr, pSP, pSlice, &pCtx->ListRef, &pBufs->tListVirtRef, &pBufs->tListRef, &pCtx->POC, &pCtx->MV, &pBufs->tWP, &pCtx->pRecs);
+  AL_HEVC_PictMngr_GetBuffers(&pCtx->PictMngr, pSP, pSlice, (TBufferListRef const*)&pCtx->ListRef, &pBufs->tListVirtRef, &pBufs->tListRef, &pCtx->POC, &pCtx->MV, &pBufs->tWP, &pCtx->pRecs);
 
   // stock command registers in memory
   AL_TerminatePreviousCommand(pCtx, pPP, pSP, false, pSP->DependentSlice);

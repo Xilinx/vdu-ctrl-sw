@@ -230,11 +230,10 @@ static void AL_AVC_sdec_ref_pic_marking(AL_TRbspParser* pRP, AL_TAvcSliceHdr* pS
 }
 
 /*****************************************************************************/
-static bool ApplyAvcSPSAndReturn(AL_TAvcSliceHdr* pSlice, AL_TAvcPps const* pPPS)
+static void ApplyAvcSPS(AL_TAvcSliceHdr* pSlice, AL_TAvcPps const* pPPS)
 {
   pSlice->pPPS = pPPS;
   pSlice->pSPS = pSlice->pPPS->pSPS;
-  return false;
 }
 
 /*****************************************************************************/
@@ -253,10 +252,10 @@ static void setAvcSliceHeaderDefaultValues(AL_TAvcSliceHdr* pSlice)
 }
 
 /*****************************************************************************/
-bool AL_AVC_ParseSliceHeader(AL_TAvcSliceHdr* pSlice, AL_TRbspParser* pRP, AL_TConceal* pConceal, AL_TAvcPps pPPSTable[])
+AL_ERR AL_AVC_ParseSliceHeader(AL_TAvcSliceHdr* pSlice, AL_TRbspParser* pRP, AL_TConceal* pConceal, AL_TAvcPps pPPSTable[])
 {
   if(!pConceal->bHasPPS)
-    return false;
+    return AL_WARN_CONCEAL_DETECT;
 
   setAvcSliceHeaderDefaultValues(pSlice);
 
@@ -274,55 +273,85 @@ bool AL_AVC_ParseSliceHeader(AL_TAvcSliceHdr* pSlice, AL_TRbspParser* pRP, AL_TC
   AL_TAvcPps const* pFallbackPps = &pPPSTable[pConceal->iLastPPSId];
 
   if(currentPPSId > AL_AVC_MAX_PPS || pPPSTable[currentPPSId].bConceal)
-    return ApplyAvcSPSAndReturn(pSlice, pFallbackPps);
+  {
+    ApplyAvcSPS(pSlice, pFallbackPps);
+    return AL_WARN_CONCEAL_DETECT;
+  }
 
   pSlice->pic_parameter_set_id = currentPPSId;
 
   int const MaxNumMb = (pPPSTable[currentPPSId].pSPS->pic_height_in_map_units_minus1 + 1) * (pPPSTable[currentPPSId].pSPS->pic_width_in_mbs_minus1 + 1);
 
   if(pSlice->first_mb_in_slice >= MaxNumMb)
-    return ApplyAvcSPSAndReturn(pSlice, pFallbackPps);
+  {
+    ApplyAvcSPS(pSlice, pFallbackPps);
+    return AL_WARN_CONCEAL_DETECT;
+  }
 
   if(pSlice->slice_type > AL_AVC_MAX_SLICE_TYPE)
-    return ApplyAvcSPSAndReturn(pSlice, pFallbackPps);
+  {
+    ApplyAvcSPS(pSlice, pFallbackPps);
+    return AL_WARN_CONCEAL_DETECT;
+  }
 
   pSlice->slice_type %= 5;
   pSlice->slice_type = AVC_SLICE_TYPE[pSlice->slice_type];
 
   // check slice_type coherency
   if((pSlice->slice_type > AL_AVC_MAX_SLICE_TYPE) || (pSlice->nal_unit_type == AL_AVC_NUT_VCL_IDR && pSlice->slice_type != AL_SLICE_I && pSlice->slice_type != AL_SLICE_SI))
-    return ApplyAvcSPSAndReturn(pSlice, pFallbackPps);
+  {
+    ApplyAvcSPS(pSlice, pFallbackPps);
+    return AL_WARN_CONCEAL_DETECT;
+  }
 
   if(pConceal->bValidFrame && (pSlice->pic_parameter_set_id != pConceal->iActivePPS))
-    return ApplyAvcSPSAndReturn(pSlice, pFallbackPps);
+  {
+    ApplyAvcSPS(pSlice, pFallbackPps);
+    return AL_WARN_CONCEAL_DETECT;
+  }
 
   if(!pConceal->bValidFrame)
     pConceal->iActivePPS = pSlice->pic_parameter_set_id;
 
   // check first MB offset coherency
   if(pSlice->first_mb_in_slice <= pConceal->iFirstLCU)
-    return ApplyAvcSPSAndReturn(pSlice, pFallbackPps);
+  {
+    ApplyAvcSPS(pSlice, pFallbackPps);
+    return AL_WARN_CONCEAL_DETECT;
+  }
 
   pSlice->slice_type %= 5;
 
   // check slice_type coherency
   if(pSlice->nal_unit_type == AL_AVC_NUT_VCL_IDR && pSlice->slice_type != AL_SLICE_I)
-    return ApplyAvcSPSAndReturn(pSlice, pFallbackPps);
+  {
+    ApplyAvcSPS(pSlice, pFallbackPps);
+    return AL_WARN_CONCEAL_DETECT;
+  }
 
   // select the pps & sps for the current picture
   AL_TAvcPps const* pPps = pSlice->pPPS = &pPPSTable[currentPPSId];
 
   if(pPps->bConceal)
-    return ApplyAvcSPSAndReturn(pSlice, pFallbackPps);
+  {
+    ApplyAvcSPS(pSlice, pFallbackPps);
+    return AL_WARN_CONCEAL_DETECT;
+  }
 
   AL_TAvcSps const* pSps = pSlice->pSPS = pPps->pSPS;
 
   if(pSps->bConceal)
-    return ApplyAvcSPSAndReturn(pSlice, pFallbackPps);
+  {
+    ApplyAvcSPS(pSlice, pFallbackPps);
+    return AL_WARN_CONCEAL_DETECT;
+  }
 
   // check if NAL isn't empty
   if(!more_rbsp_data(pRP))
-    return ApplyAvcSPSAndReturn(pSlice, pFallbackPps);
+  {
+    ApplyAvcSPS(pSlice, pFallbackPps);
+    return AL_WARN_CONCEAL_DETECT;
+  }
 
   int const iFrameNumSize = pSps->log2_max_frame_num_minus4 + 4;
 
@@ -340,9 +369,9 @@ bool AL_AVC_ParseSliceHeader(AL_TAvcSliceHdr* pSlice, AL_TRbspParser* pRP, AL_TC
 
       if(bCheckValidity)
       {
-        /* We do not support field (alternate) pictures */
         Rtos_Log(AL_LOG_ERROR, "Interlaced pictures are not supported\n");
-        return ApplyAvcSPSAndReturn(pSlice, pFallbackPps);
+        ApplyAvcSPS(pSlice, pFallbackPps);
+        return AL_WARN_SPS_INTERLACE_NOT_COMPATIBLE_WITH_CHANNEL_SETTINGS;
       }
     }
   }
@@ -394,10 +423,13 @@ bool AL_AVC_ParseSliceHeader(AL_TAvcSliceHdr* pSlice, AL_TRbspParser* pRP, AL_TC
 
   // check if NAL isn't empty
   if(!more_rbsp_data(pRP))
-    return ApplyAvcSPSAndReturn(pSlice, pFallbackPps);
+  {
+    ApplyAvcSPS(pSlice, pFallbackPps);
+    return AL_WARN_CONCEAL_DETECT;
+  }
 
   if(!AL_AVC_sref_pic_list_reordering(pRP, pSlice))
-    return false;
+    return AL_WARN_CONCEAL_DETECT;
 
   if(
     (pPps->weighted_pred_flag && pSlice->slice_type == AL_SLICE_P) ||
@@ -406,7 +438,10 @@ bool AL_AVC_ParseSliceHeader(AL_TAvcSliceHdr* pSlice, AL_TRbspParser* pRP, AL_TC
   {
     // check if NAL isn't empty
     if(!more_rbsp_data(pRP))
-      return ApplyAvcSPSAndReturn(pSlice, pFallbackPps);
+    {
+      ApplyAvcSPS(pSlice, pFallbackPps);
+      return AL_WARN_CONCEAL_DETECT;
+    }
 
     AL_AVC_spred_weight_table(pRP, pSlice);
   }
@@ -415,7 +450,10 @@ bool AL_AVC_ParseSliceHeader(AL_TAvcSliceHdr* pSlice, AL_TRbspParser* pRP, AL_TC
   {
     // check if NAL isn't empty
     if(!more_rbsp_data(pRP))
-      return ApplyAvcSPSAndReturn(pSlice, pFallbackPps);
+    {
+      ApplyAvcSPS(pSlice, pFallbackPps);
+      return AL_WARN_CONCEAL_DETECT;
+    }
 
     AL_AVC_sdec_ref_pic_marking(pRP, pSlice);
   }
@@ -438,10 +476,11 @@ bool AL_AVC_ParseSliceHeader(AL_TAvcSliceHdr* pSlice, AL_TRbspParser* pRP, AL_TC
   if(pPps->num_slice_groups_minus1 != 0)
   {
     Rtos_Log(AL_LOG_ERROR, "ASO/FMO is not supported\n");
-    return false;
+    ApplyAvcSPS(pSlice, pFallbackPps);
+    return AL_WARN_ASO_FMO_NOT_SUPPORTED;
   }
 
   pConceal->iFirstLCU = pSlice->first_mb_in_slice;
-  return true;
+  return AL_SUCCESS;
 }
 

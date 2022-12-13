@@ -28,7 +28,6 @@
 #include <string>
 #include <map>
 #include <vector>
-#include <cassert>
 
 using namespace std;
 
@@ -40,11 +39,11 @@ struct AllocatorTracker
   const AL_AllocatorVtable* vtable;
   AL_TAllocator* realAllocator;
   map<string, vector<size_t>> allocs;
-  int size = 0;
+  uint64_t size = 0;
   int mode = summaryMode;
 };
 
-static int bytes_to_megabytes(int bytes)
+static int bytes_to_megabytes(uint64_t bytes)
 {
   return bytes / (1024 * 1024);
 }
@@ -61,7 +60,7 @@ static bool destroy(AL_TAllocator* handle)
     {
       auto const sizes = alloc.second;
       auto const firstSize = sizes.at(0);
-      auto totalSize = 0;
+      uint64_t totalSize = 0;
 
       /* buffer with the same name should have the same size */
       if(alloc.first != "unknown")

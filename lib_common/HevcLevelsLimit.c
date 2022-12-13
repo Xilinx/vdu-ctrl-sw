@@ -23,6 +23,7 @@
 ******************************************************************************/
 
 #include "HevcLevelsLimit.h"
+#include "Utils.h"
 
 /****************************************************************************/
 bool AL_HEVC_CheckLevel(int level)
@@ -163,8 +164,14 @@ static int getMaxLumaPS(int iLevel)
 }
 
 /******************************************************************************/
-uint32_t AL_HEVC_GetMaxDPBSize(int iLevel, int iWidth, int iHeight)
+uint32_t AL_HEVC_GetMaxDPBSize(int iLevel, int iWidth, int iHeight, bool bIsIntraProfile, bool bIsStillProfile, bool bDecodeIntraOnly)
 {
+  if(bIsStillProfile)
+    return 1;
+
+  if(bIsIntraProfile || bDecodeIntraOnly)
+    return 2;
+
   int iMaxLumaPS = getMaxLumaPS(iLevel);
 
   int const iPictSizeY = iWidth * iHeight;

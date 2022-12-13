@@ -98,12 +98,12 @@ static bool IsSuccess(UNIT_ERROR err)
   return (err == SUCCESS_ACCESS_UNIT) || (err == SUCCESS_NAL_UNIT);
 }
 
-static void Process(AL_TSplitBufferFeeder* this)
+static bool Process(AL_TSplitBufferFeeder* this)
 {
   AL_TBuffer* workBuf = AL_Fifo_Dequeue(&this->inputFifo, AL_NO_WAIT);
 
   if(!workBuf)
-    return;
+    return true;
 
   Rtos_AtomicDecrement(&this->numInputBuf);
 
@@ -139,6 +139,8 @@ static void Process(AL_TSplitBufferFeeder* this)
   }
 
   AL_Buffer_Unref(workBuf);
+
+  return err != ERR_UNIT_INVALID_CHANNEL;
 }
 
 static void* Process_EntryPoint(void* userParam)
@@ -154,7 +156,8 @@ static void* Process_EntryPoint(void* userParam)
     if(!shouldKeepGoing(this) && !HasInputBuffer(this))
       break;
 
-    Process(this);
+    if(!Process(this))
+      break;
   }
 
   return NULL;

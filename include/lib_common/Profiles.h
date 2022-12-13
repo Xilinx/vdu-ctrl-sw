@@ -210,6 +210,14 @@ static inline bool AL_IS_ITU_CODEC(AL_ECodec eCodec)
 }
 
 /****************************************************************************/
+static inline bool AL_IS_JPEG_CODEC(AL_ECodec eCodec)
+{
+  (void)eCodec;
+  bool bIsJpeg = false;
+  return bIsJpeg;
+}
+
+/****************************************************************************/
 static inline bool AL_IS_LOW_BITRATE_PROFILE(AL_EProfile eProfile)
 {
   (void)eProfile;

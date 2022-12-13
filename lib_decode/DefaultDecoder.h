@@ -66,7 +66,7 @@ void AL_Default_Decoder_EndParsing(void* pUserParam, int iFrameID, int iParsingI
    \param[in] pUserParam filled with the decoder context
    \param[in] pStatus Current frame decoded status
 *****************************************************************************/
-void AL_Default_Decoder_EndDecoding(void* pUserParam, AL_TDecPicStatus* pStatus);
+void AL_Default_Decoder_EndDecoding(void* pUserParam, AL_TDecPicStatus const* pStatus);
 
 /*************************************************************************//*!
    \brief This function signal that a buffer as been fully parsed and force

@@ -67,6 +67,7 @@ typedef uint32_t AL_PADDR; /*!< Physical address, 32-bit address registers */
 
 typedef AL_64U AL_PTR64;
 typedef void* AL_HANDLE;
+typedef void const* AL_CONST_HANDLE;
 
 /*@}*/
 

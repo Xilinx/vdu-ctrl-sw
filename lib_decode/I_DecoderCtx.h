@@ -51,6 +51,14 @@ typedef enum AL_e_ChanState
   CHAN_DESTROYING,
 }AL_EChanState;
 
+typedef enum
+{
+  SEND_NAL_UNTIL_LAST_VCL,
+  SEND_REORDERED_SUFFIX,
+  SEND_LAST_VCL,
+  SEND_REMAINING_NAL,
+}AL_DecodeNalStep;
+
 typedef struct
 {
   AL_ENut dps;
@@ -85,6 +93,9 @@ typedef struct
   void (* finishPendingRequest)(AL_TDecCtx*);
   AL_NonVclNuts (* getNonVclNuts)(void);
   bool (* isNutError)(AL_ENut);
+  // use in Split Input
+  // return true if the Nal should be reordered to be send before sending the last Vcl Nal
+  bool (* canNalBeReordered)(AL_ENut);
 }AL_NalParser;
 
 /*************************************************************************//*!
@@ -171,6 +182,7 @@ typedef struct t_Dec_Ctx
 
   // error concealment context
   AL_TConceal tConceal;
+  uint16_t uConcealMaxFps; // Clipping of framerate for stream having corrupted or invalid SPS header
 
   // tile data management
   uint16_t uCurTileID;      // Tile offset of the current tile within the frame
@@ -203,7 +215,6 @@ typedef struct t_Dec_Ctx
 
   int iNumSlicesRemaining;
 
-  bool bDecodeIntraOnly;
   bool bIsIFrame;
 
   AL_TPosition tOutputPosition;

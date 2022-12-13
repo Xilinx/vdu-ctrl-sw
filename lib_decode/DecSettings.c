@@ -117,13 +117,13 @@ void AL_DecSettings_SetDefaults(AL_TDecSettings* pSettings)
   pSettings->eCodec = AL_CODEC_HEVC;
   pSettings->bUseIFramesAsSyncPoint = false;
   pSettings->eInputMode = AL_DEC_UNSPLIT_INPUT;
-  pSettings->iInstanceId = -1;
 
   pSettings->tStream.tDim.iWidth = STREAM_SETTING_UNKNOWN;
   pSettings->tStream.tDim.iHeight = STREAM_SETTING_UNKNOWN;
   pSettings->tStream.iBitDepth = STREAM_SETTING_UNKNOWN;
   pSettings->tStream.eProfile = STREAM_SETTING_UNKNOWN;
   pSettings->tStream.iLevel = STREAM_SETTING_UNKNOWN;
+  pSettings->tStream.bDecodeIntraOnly = false;
 }
 
 /***************************************************************************/
@@ -181,13 +181,13 @@ int AL_DecSettings_CheckValidity(AL_TDecSettings* pSettings, FILE* pOut)
     MSG("The output position doesn't fit the alignement constraints for the current buffer format");
   }
 
-  if(pSettings->bDecodeIntraOnly && !(pSettings->eCodec == AL_CODEC_AVC || pSettings->eCodec == AL_CODEC_HEVC))
+  if(pSettings->tStream.bDecodeIntraOnly && !(pSettings->eCodec == AL_CODEC_AVC || pSettings->eCodec == AL_CODEC_HEVC || pSettings->eCodec == AL_CODEC_VVC))
   {
     ++err;
-    MSG("The decode IntraOnly mode is only available with AVC and HEVC");
+    MSG("The decode IntraOnly mode is only available with AVC, HEVC and VVC");
   }
 
-  if(pSettings->bDecodeIntraOnly && !(pSettings->eDecUnit == AL_AU_UNIT))
+  if(pSettings->tStream.bDecodeIntraOnly && !(pSettings->eDecUnit == AL_AU_UNIT))
   {
     ++err;
     MSG("The decode IntraOnly mode is only available in frame latency");

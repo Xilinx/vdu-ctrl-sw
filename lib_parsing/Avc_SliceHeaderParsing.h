@@ -27,6 +27,7 @@
 #include "Concealment.h"
 #include "lib_common/SliceHeader.h"
 #include "lib_common_dec/RbspParser.h"
+#include "lib_common/Error.h"
 
 /*************************************************************************//*!
    \brief This function parses an Avc SliceHeader
@@ -34,8 +35,7 @@
    \param[in]  pRP       Pointer to NAL buffer
    \param[in]  pConceal  Pointer on a structure receiving concealment information
    \param[in]  pPPSTable Pointer to a table where are stored the available PPS
-   \return return true if the current slice header is valid
-   false otherwise
+   \return return AL_SUCCESS if the current slice header is valid, the error type otherwise
 *****************************************************************************/
-bool AL_AVC_ParseSliceHeader(AL_TAvcSliceHdr* pSlice, AL_TRbspParser* pRP, AL_TConceal* pConceal, AL_TAvcPps pPPSTable[]);
+AL_ERR AL_AVC_ParseSliceHeader(AL_TAvcSliceHdr* pSlice, AL_TRbspParser* pRP, AL_TConceal* pConceal, AL_TAvcPps pPPSTable[]);
 

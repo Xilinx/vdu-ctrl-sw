@@ -24,6 +24,8 @@
 
 #include "lib_app/JsonFile.h"
 
+using namespace std;
+
 struct TJsonToken
 {
   enum ETokenType

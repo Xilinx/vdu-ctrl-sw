@@ -111,7 +111,11 @@ uint32_t AL_AVC_GetMaxNumberOfSlices(AL_EProfile profile, int level, int numUnit
     maxNumSlices = Min((((maxMBPS * 2 * numUnitInTicks) / timeScale) / sliceRate), numMbsInPic);
 
     if(maxNumSlices == 0)
+    {
+      Rtos_Log(AL_LOG_INFO, "Invalid parameters detected, numUnitInTicks=%d timeScale=%d, reset maxNumSlices to %d \n",
+               numUnitInTicks, timeScale, numMbsInPic);
       maxNumSlices = numMbsInPic;
+    }
   }
 
   int const specificationMaxNumSlices = 2880;
@@ -178,14 +182,17 @@ static int getMaxDpbMBs(int iLevel)
 }
 
 /******************************************************************************/
-uint32_t AL_AVC_GetMaxDPBSize(int iLevel, int iWidth, int iHeight)
+uint32_t AL_AVC_GetMaxDPBSize(int iLevel, int iWidth, int iHeight, int iSpsMaxRef, bool bIntraProfile, bool bDecodeIntraOnly)
 {
   AL_Assert(iWidth);
   AL_Assert(iHeight);
 
+  if(bIntraProfile || bDecodeIntraOnly)
+    return 2;
+
   int iMaxDpbMbs = getMaxDpbMBs(iLevel);
   int const iNumMbs = ((iWidth / 16) * (iHeight / 16));
-  return Clip3(iMaxDpbMbs / iNumMbs, 2, MAX_REF);
+  return UnsignedMax(Clip3(iMaxDpbMbs / iNumMbs, 2, MAX_REF), iSpsMaxRef);
 }
 
 /*************************************************************************/

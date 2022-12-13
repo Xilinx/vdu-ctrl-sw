@@ -45,7 +45,6 @@ typedef struct AL_t_DecChannelParam
   uint32_t uClkRatio;
   uint32_t uMaxLatency;
   uint8_t uNumCore;
-  int8_t iInstanceId;    /*!< Instance used for decoding */
   bool bNonRealtime;
   uint8_t uDDRWidth;
   bool bLowLat;

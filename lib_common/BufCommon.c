@@ -156,6 +156,11 @@ int AL_CLEAN_BUFFERS = 0;
 void AL_CleanupMemory(void* pDst, size_t uSize)
 {
   if(AL_CLEAN_BUFFERS)
+  {
     Rtos_Memset(pDst, 0, uSize);
+#ifdef COMPILE_FOR_MCU
+    Rtos_FlushCacheMemory(pDst, uSize);
+#endif
+  }
 }
 

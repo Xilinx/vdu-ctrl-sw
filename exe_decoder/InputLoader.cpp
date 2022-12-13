@@ -84,6 +84,18 @@ struct HevcParser final : public INalParser
     case AL_HEVC_NUT_SPS:
     case AL_HEVC_NUT_PPS:
     case AL_HEVC_NUT_PREFIX_SEI:
+    case AL_HEVC_NUT_RSV_NVCL41:
+    case AL_HEVC_NUT_RSV_NVCL42:
+    case AL_HEVC_NUT_RSV_NVCL43:
+    case AL_HEVC_NUT_RSV_NVCL44:
+    case AL_HEVC_NUT_UNSPEC_48:
+    case AL_HEVC_NUT_UNSPEC_49:
+    case AL_HEVC_NUT_UNSPEC_50:
+    case AL_HEVC_NUT_UNSPEC_51:
+    case AL_HEVC_NUT_UNSPEC_52:
+    case AL_HEVC_NUT_UNSPEC_53:
+    case AL_HEVC_NUT_UNSPEC_54:
+    case AL_HEVC_NUT_UNSPEC_55:
       return true;
     default:
       return false;

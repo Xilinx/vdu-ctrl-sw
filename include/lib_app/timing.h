@@ -30,16 +30,13 @@
 
 inline uint64_t GetPerfTime()
 {
-  using namespace std;
-
-  auto now = chrono::high_resolution_clock::now();
+  auto now = std::chrono::high_resolution_clock::now();
   auto elapsed = now.time_since_epoch();
-  return chrono::duration_cast<chrono::milliseconds>(elapsed).count();
+  return std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
 }
 
 inline void Sleep(int ms)
 {
-  using namespace std;
-  this_thread::sleep_for(chrono::milliseconds(ms));
+  std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }
 

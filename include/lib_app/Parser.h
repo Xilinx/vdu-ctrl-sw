@@ -26,7 +26,6 @@
 #include "Tokenizer.h"
 
 #include <algorithm>
-#include <cassert>
 #include <deque>
 #include <functional>
 #include <limits>
@@ -74,6 +73,13 @@ static inline std::vector<Codec> filterCodecs(std::vector<Codec> inputCodecs)
 
   for(auto const& codec: inputCodecs)
   {
+    (void)codec;
+
+    if(codec == Codec::Hevc)
+      filteredCodecs.push_back(Codec::Hevc);
+
+    if(codec == Codec::Avc)
+      filteredCodecs.push_back(Codec::Avc);
   }
 
   return filteredCodecs;
@@ -134,7 +140,8 @@ static inline void SetEnumDescr(std::map<std::string, EnumDescription<T>>& enumD
 
   if(it != enumDescr.end())
   {
-    assert(enumDescr[key].name == name);
+    if(enumDescr[key].name != name)
+      throw std::runtime_error("enumDescr[key].name should be equal to name");
     enumDescr[key].codecs.insert(enumDescr[key].codecs.end(), codecs.begin(), codecs.end());
   }
   else
@@ -189,7 +196,10 @@ struct ArithInfo
     max{max_}
   {
     if(!codecs_.empty())
-      assert(min < max);
+    {
+      if(min >= max)
+        throw std::runtime_error("min(" + std::to_string(min) + ") must be lower than max(" + std::to_string(max) + ")");
+    }
   }
 
   std::vector<Codec> codecs;

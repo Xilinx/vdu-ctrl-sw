@@ -25,6 +25,8 @@
 #include "HDRWriter.h"
 #include "lib_app/JsonFile.h"
 
+using namespace std;
+
 HDRWriter::HDRWriter(const string& sHDRFile) :
   jsonWriter(sHDRFile, true)
 {

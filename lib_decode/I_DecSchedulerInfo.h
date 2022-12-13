@@ -24,20 +24,21 @@
 
 #pragma once
 
-#include "lib_common/PPS.h"
-#include "lib_common/SPS.h"
-#include "lib_common_dec/RbspParser.h"
-#include "Concealment.h"
-#include "common_syntax.h"
-#include "Aup.h"
+/*************************************************************************//*!
+   \brief Core Information structure
+*****************************************************************************/
+typedef struct
+{
+  int iCoreFrequency;
+  int iMaxVideoResourcePerCore;
+  int iVideoResource[AL_DEC_NUM_CORES];
+}AL_TISchedulerCore;
 
-#include "lib_common_dec/DecCallbacks.h" // for AL_CB_ParsedSEI
-#include "lib_common/BufferSeiMeta.h"
-
-void AL_AVC_InitAUP(AL_TAvcAup* pAUP);
-
-AL_PARSE_RESULT AL_AVC_ParsePPS(AL_TAup* pIAup, AL_TRbspParser* pRP, uint16_t* pPpsId);
-AL_PARSE_RESULT AL_AVC_ParseSPS(AL_TRbspParser* pRP, AL_TAvcSps* pSPS);
-bool AL_AVC_ParseSEI(AL_TAup* pIAup, AL_TRbspParser* pRP, bool bIsPrefix, AL_CB_ParsedSei* cb, AL_TSeiMetaData* pMeta);
-AL_TCropInfo AL_AVC_GetCropInfo(AL_TAvcSps const* pSPS);
+/****************************************************************************/
+typedef enum
+{
+  AL_ISCHEDULER_CORE, /*!< reference: AL_TISchedulerCore */
+  AL_ISCHEDULER_CHANNEL_TRACE_CALLBACK, /*!< reference: AL_TIDecSchedulerChannelTraceCallback */
+  AL_ISCHEDULER_MAX_ENUM,
+}AL_EIDecSchedulerInfo;
 

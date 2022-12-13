@@ -70,6 +70,8 @@ typedef enum
   AL_WARN_SPS_RESOLUTION_NOT_COMPATIBLE_WITH_CHANNEL_SETTINGS = AL_DEF_WARNING(12),
   /*! Sps minimal resolution not compatible with channel settings, decoder discards it */
   AL_WARN_SPS_MIN_RESOLUTION_NOT_COMPATIBLE_WITH_CHANNEL_SETTINGS = AL_DEF_WARNING(13),
+  /*! Arbitrary Slice Order or Flexible Macroblock Reordering features are not supported, decoder discards it */
+  AL_WARN_ASO_FMO_NOT_SUPPORTED = AL_DEF_WARNING(14),
 
   /*! Unknown error */
   AL_ERROR = AL_DEF_ERROR(0),

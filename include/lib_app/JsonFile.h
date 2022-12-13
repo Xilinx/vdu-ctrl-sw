@@ -28,9 +28,7 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <cassert>
-
-using namespace std;
+#include <stdexcept>
 
 struct TJsonToken;
 
@@ -124,7 +122,8 @@ private:
 template<typename T>
 TJsonValue & TJsonValue::PushBackValue(T tValue)
 {
-  assert(eType == JSON_VALUE_ARRAY);
+  if(eType != JSON_VALUE_ARRAY)
+    throw std::runtime_error("eType must be JSON_VALUE_ARRAY");
   arrayValue.push_back(TJsonValue(tValue));
   return arrayValue.back();
 }
@@ -132,7 +131,8 @@ TJsonValue & TJsonValue::PushBackValue(T tValue)
 template<typename T>
 TJsonValue & TJsonValue::AddValue(const std::string& sKey, T tValue)
 {
-  assert(eType == JSON_VALUE_OBJECT);
+  if(eType != JSON_VALUE_OBJECT)
+    throw std::runtime_error("eType must be JSON_VALUE_OBJECT");
   objectValue[sKey] = TJsonValue(tValue);
   return objectValue[sKey];
 }

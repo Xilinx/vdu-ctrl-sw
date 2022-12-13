@@ -22,7 +22,7 @@
 *
 ******************************************************************************/
 
-#include <cassert>
+#include <stdexcept>
 extern "C"
 {
 #include "lib_rtos/lib_rtos.h"
@@ -344,7 +344,9 @@ uint32_t AL_GetWaitMode(AL_EBufMode eMode)
     Wait = AL_NO_WAIT;
     break;
   default:
-    assert(eMode >= AL_BUF_MODE_MAX);
+
+    if(eMode < AL_BUF_MODE_MAX)
+      throw std::runtime_error("eMode should be higher or equal than AL_BUF_MODE_MAX");
     break;
   }
 

@@ -27,7 +27,6 @@
 #include <cstring>
 #include <iomanip>
 #include <iostream>
-#include <cassert>
 
 #include "CodecUtils.h"
 #include "resource.h"

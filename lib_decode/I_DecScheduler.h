@@ -32,6 +32,8 @@
 
 #pragma once
 
+#include "I_DecSchedulerInfo.h"
+
 #include "lib_rtos/types.h"
 #include "lib_common/Error.h"
 
@@ -52,13 +54,13 @@ typedef struct
 /****************************************************************************/
 typedef struct
 {
-  void (* func)(void* pUserParam, AL_TDecPicStatus* pPicStatus);
+  void (* func)(void* pUserParam, AL_TDecPicStatus const* pPicStatus);
   void* userParam;
 }AL_TDecScheduler_CB_EndDecoding;
 
 typedef struct
 {
-  void (* func)(void* pUserParam, AL_TScStatus* pScdStatus);
+  void (* func)(void* pUserParam, AL_TScStatus const* pScdStatus);
   void* userParam;
 }AL_TDecScheduler_CB_EndStartCode;
 
@@ -88,7 +90,8 @@ typedef struct AL_i_DecSchedulerVtable
   void (* SearchSC)(AL_IDecScheduler* pScheduler, AL_HANDLE hStartCodeChannel, AL_TScParam* pScParam, AL_TScBufferAddrs* pBufferAddrs, AL_TDecScheduler_CB_EndStartCode callback);
   void (* DecodeOneFrame)(AL_IDecScheduler* pScheduler, AL_HANDLE hChannel, AL_TDecPicParam* pPictParam, AL_TDecPicBufferAddrs* pPictAddrs, TMemDesc* pSliceParams);
   void (* DecodeOneSlice)(AL_IDecScheduler* pScheduler, AL_HANDLE hChannel, AL_TDecPicParam* pPictParam, AL_TDecPicBufferAddrs* pPictAddrs, TMemDesc* pSliceParams);
-
+  void (* Get)(AL_IDecScheduler const* pScheduler, AL_EIDecSchedulerInfo info, void* pParam);
+  void (* Set)(AL_IDecScheduler* pScheduler, AL_EIDecSchedulerInfo info, void const* pParam);
 }AL_IDecSchedulerVtable;
 
 /*************************************************************************//*!
@@ -195,6 +198,18 @@ static inline
 void AL_IDecScheduler_DecodeOneSlice(AL_IDecScheduler* pThis, AL_HANDLE hChannel, AL_TDecPicParam* pPictParam, AL_TDecPicBufferAddrs* pPictAddrs, TMemDesc* pSliceParams)
 {
   pThis->vtable->DecodeOneSlice(pThis, hChannel, pPictParam, pPictAddrs, pSliceParams);
+}
+
+static inline
+void AL_IDecScheduler_Get(AL_IDecScheduler const* pThis, AL_EIDecSchedulerInfo eInfo, void* pParam)
+{
+  pThis->vtable->Get(pThis, eInfo, pParam);
+}
+
+static inline
+void AL_IDecScheduler_Set(AL_IDecScheduler* pThis, AL_EIDecSchedulerInfo eInfo, void const* pParam)
+{
+  pThis->vtable->Set(pThis, eInfo, pParam);
 }
 
 /*@}*/

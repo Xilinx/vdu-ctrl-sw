@@ -144,6 +144,9 @@ int16_t MaxInArray(const int16_t tab[], int arraySize);
 int16_t MinInArray(const int16_t tab[], int arraySize);
 
 /****************************************************************************/
+bool IsWindowEmpty(AL_TWindow tWindow);
+
+/****************************************************************************/
 AL_HANDLE AlignedAlloc(AL_TAllocator* pAllocator, const char* pBufName, uint32_t uSize, uint32_t uAlign, uint32_t* uAllocatedSize, uint32_t* uAlignmentOffset);
 
 /*************************************************************************//*!

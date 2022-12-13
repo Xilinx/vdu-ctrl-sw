@@ -40,10 +40,13 @@
 #ifndef MAX_NUM_LAYER
 #define MAX_NUM_LAYER 1
 #endif
+#ifndef AL_TITLE
+#define AL_TITLE XilinxVDU
+#endif
 
 
 #define AL_CONFIGURE_COMMANDLINE "./configure --config-blob customers/XilinxVDU/config.ini"
 #define AL_VERSION_MAJOR 0
-#define AL_VERSION_MINOR 33
+#define AL_VERSION_MINOR 34
 #define AL_VERSION_STEP 0
 

@@ -1,7 +1,6 @@
 LIB_DECODE_SRC+=\
   lib_decode/NalUnitParser.c\
   lib_decode/FrameParam.c\
-  lib_decode/SliceDataParsing.c\
   lib_decode/DefaultDecoder.c\
   lib_decode/LibDecodeHost.c\
   lib_decode/lib_decode.c\
@@ -14,11 +13,15 @@ LIB_DECODE_SRC+=\
   lib_decode/DecSettings.c
 
 
+ifneq ($(ENABLE_DEC_ITU_OR_AOM), 0)
+  LIB_DECODE_SRC +=\
+    lib_decode/SliceDataParsing.c
+endif    
+
 
 ifneq ($(ENABLE_MCU),0)
   LIB_DECODE_SRC+=lib_decode/DecSchedulerMcu.c
 else
-  # the proxy mode also uses the mcu.
 endif
 
 ifneq ($(ENABLE_DEC_AVC),0)

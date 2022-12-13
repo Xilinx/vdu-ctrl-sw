@@ -332,7 +332,7 @@ void AL_HEVC_FillPictParameters(const AL_THevcSliceHdr* pSlice, const AL_TDecCtx
 }
 
 /******************************************************************************/
-void AL_HEVC_FillSliceParameters(const AL_THevcSliceHdr* pSlice, const AL_TDecCtx* pCtx, AL_TDecSliceParam* pSP, bool bConceal)
+void AL_HEVC_FillSliceParameters(const AL_THevcSliceHdr* pSlice, const AL_TDecCtx* pCtx, AL_TDecSliceParam* pSP)
 {
   /* to speed up memset we don't reset entry_point_offset array */
   Rtos_Memset(pSP, 0, offsetof(AL_TDecSliceParam, entry_point_offset));
@@ -351,8 +351,7 @@ void AL_HEVC_FillSliceParameters(const AL_THevcSliceHdr* pSlice, const AL_TDecCt
   pSP->SliceQP = 26 + pPps->init_qp_minus26 + pSlice->slice_qp_delta;
   pSP->CabacInitIdc = pSlice->cabac_init_flag;
 
-  if(!bConceal)
-    pSP->eSliceType = (AL_ESliceType)pSlice->slice_type;
+  pSP->eSliceType = (AL_ESliceType)pSlice->slice_type;
   pSP->DependentSlice = (bool)pSlice->dependent_slice_segment_flag;
 
   // Reg 4

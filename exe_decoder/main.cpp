@@ -22,7 +22,6 @@
 *
 ******************************************************************************/
 
-#include <cassert>
 #include <cstdarg>
 #include <cstdlib>
 #include <climits>
@@ -137,7 +136,6 @@ struct Config
   bool trackDma = false;
   int hangers = 0;
   int iLoop = 1;
-  int iStartDelay = 0;
   int iTimeoutInSeconds = -1;
   int iMaxFrames = INT_MAX;
   string seiFile = "";
@@ -186,7 +184,7 @@ static TCouple CoupleWithSeparator(const string& str)
 }
 
 /******************************************************************************/
-static AL_EFbStorageMode getMainOutputStorageMode(const AL_TDecSettings& decSettings, bool& bOutputCompression, uint8_t uBitDepth)
+static AL_EFbStorageMode GetMainOutputStorageMode(const AL_TDecSettings& decSettings, bool& bOutputCompression, uint8_t uBitDepth)
 {
   (void)uBitDepth;
   AL_EFbStorageMode eOutputStorageMode = decSettings.eFBStorageMode;
@@ -196,9 +194,22 @@ static AL_EFbStorageMode getMainOutputStorageMode(const AL_TDecSettings& decSett
 }
 
 /******************************************************************************/
+static bool IsPrimaryOutputFormatAllowed(AL_EFbStorageMode mode)
+{
+  bool bAllowed = true;
+
+  (void)mode;
+
+  return bAllowed;
+}
+
+/******************************************************************************/
 void processOutputArgs(Config& config, const string& sRasterOut)
 {
   (void)sRasterOut;
+
+  if(!IsPrimaryOutputFormatAllowed(config.tDecSettings.eFBStorageMode))
+    throw runtime_error("Primary output format is not allowed !");
 
   if(!config.bEnableYUVOutput)
   {
@@ -370,12 +381,31 @@ void parsePreAllocArgs(AL_TStreamSettings* settings, AL_ECodec codec, string& to
     string const& sArgs = ss.str();
     string const& sProf = sArgs.substr(ss.tellg(), sArgs.find_first_of(':', ss.tellg()) - ss.tellg());
     settings->eProfile = parseProfile(sProf);
-    assert(AL_GET_CODEC(settings->eProfile) == codec);
+
+    if(AL_GET_CODEC(settings->eProfile) != codec)
+      throw runtime_error("The profile does not match the codec");
+
     ss.ignore(sProf.length());
   }
 
   getExpectedSeparator(ss, ':');
   ss >> settings->iLevel;
+  switch(codec)
+  {
+  case AL_CODEC_AVC:
+  case AL_CODEC_HEVC:
+
+    if(settings->iLevel < 10 || settings->iLevel > 62)
+      throw runtime_error("The level does not match the codec");
+    break;
+  case AL_CODEC_VVC:
+
+    if(settings->iLevel < 10 || settings->iLevel > 63)
+      throw runtime_error("The level does not match the codec");
+    break;
+  default:
+    break;
+  }
 
   if(string(chroma) == "400")
     settings->eChroma = AL_CHROMA_4_0_0;
@@ -412,6 +442,33 @@ static EDecErrorLevel parseExitOn(const string& toParse)
     return DEC_ERROR;
   else
     throw runtime_error("wrong exit condition");
+}
+
+/******************************************************************************/
+std::string getHandledValuesList(const std::map<std::string, int> HandledValues)
+{
+  std::string sHandledValuesList;
+
+  for(const auto& bdMode : HandledValues)
+    sHandledValuesList += std::string("'") + bdMode.first + std::string("' ");
+
+  return sHandledValuesList;
+}
+
+/******************************************************************************/
+int parseStringToEnum(string s, const std::map<std::string, int> HandledValues, int defaultValue)
+{
+  if(s.empty())
+  {
+    return defaultValue;
+  }
+
+  auto chosenValue = HandledValues.find(s);
+
+  if(chosenValue != HandledValues.end())
+    return chosenValue->second;
+
+  throw runtime_error(std::string("Wrong value. Allowed values are: ") + getHandledValuesList(HandledValues));
 }
 
 /******************************************************************************/
@@ -485,15 +542,13 @@ static Config ParseCommandLine(int argc, char* argv[])
   opt.addString("--prealloc-args", &preAllocArgs, "Specify stream's parameters: 'widthxheight:video-mode:chroma-mode:bit-depth:profile:level' for example '1920x1080:progr:422:10:HEVC_MAIN:5'. video-mode values are: unkwn, progr or inter. Be careful cast is important.");
   opt.addCustom("--output-position", &Config.tDecSettings.tOutputPosition, &CoupleWithSeparator<AL_TPosition, ','>, "Specify the position of the decoded frame in frame buffer");
 
-  opt.addFlag("--decode-intraonly", &Config.tDecSettings.bDecodeIntraOnly, "Decode Only I Frames");
+  opt.addFlag("--decode-intraonly", &Config.tDecSettings.tStream.bDecodeIntraOnly, "Decode Only I Frames");
 
   opt.startSection("Run");
 
   opt.addInt("--max-frames", &Config.iMaxFrames, "Abort after max number of decoded frames (approximative abort)");
   opt.addInt("-loop", &Config.iLoop, "Number of Decoding loop (optional)");
   opt.addInt("--timeout", &Config.iTimeoutInSeconds, "Specify timeout in seconds");
-
-  opt.addInt("--instance-id", &Config.tDecSettings.iInstanceId, "Specify the instance id that will be used for decoding");
 
   opt.addCustom("--exit-on", &Config.eExitCondition, parseExitOn, "Specifify early exit condition (e/error, w/warning)");
 
@@ -550,6 +605,8 @@ static Config ParseCommandLine(int argc, char* argv[])
               "Use --no-reordering instead",
               AL_DPB_NO_REORDERING);
 
+  opt.addUint("--conceal-max-fps", &Config.tDecSettings.uConcealMaxFps, "Maximum fps to conceal invalid or corrupted stream header; 0 = no concealment");
+
   bool bHasDeprecated = opt.parse(argc, argv);
 
   if(Config.help)
@@ -577,7 +634,7 @@ static Config ParseCommandLine(int argc, char* argv[])
   processOutputArgs(Config, sRasterOut);
 
   bool bMainOutputCompression;
-  getMainOutputStorageMode(Config.tDecSettings, bMainOutputCompression, 8);
+  GetMainOutputStorageMode(Config.tDecSettings, bMainOutputCompression, 8);
 
   if(bMainOutputCompression)
   {
@@ -606,11 +663,19 @@ static Config ParseCommandLine(int argc, char* argv[])
       /* For pre-allocation, we must use 8x8 (HEVC) or MB (AVC) rounded dimensions, like the SPS. */
       /* Actually, round up to the LCU so we're able to support resolution changes with the same LCU sizes. */
       /* And because we don't know the codec here, always use 64 as MB/LCU size. */
-      Config.tDecSettings.tStream.tDim.iWidth = RoundUp(Config.tDecSettings.tStream.tDim.iWidth, 64);
-      Config.tDecSettings.tStream.tDim.iHeight = RoundUp(Config.tDecSettings.tStream.tDim.iHeight, 64);
+      int iAlignValue = 8;
+
+      if(Config.tDecSettings.eCodec == AL_CODEC_AVC)
+        iAlignValue = 16;
+
+      Config.tDecSettings.tStream.tDim.iWidth = RoundUp(Config.tDecSettings.tStream.tDim.iWidth, iAlignValue);
+      Config.tDecSettings.tStream.tDim.iHeight = RoundUp(Config.tDecSettings.tStream.tDim.iHeight, iAlignValue);
 
       Config.bUsePreAlloc = true;
     }
+
+    if(Config.tDecSettings.eInputMode == AL_DEC_SPLIT_INPUT && !Config.bUsePreAlloc)
+      throw std::runtime_error(" --split-input requires preallocation");
 
     if((Config.tDecSettings.tOutputPosition.iX || Config.tDecSettings.tOutputPosition.iY) && !Config.bUsePreAlloc)
       throw std::runtime_error(" --output-position requires preallocation");
@@ -691,26 +756,29 @@ public:
   virtual void ProcessFrame(AL_TBuffer& tRecBuf, const AL_TInfoDecode& info, int iBdOut, TFourCC tOutFourCC) = 0;
 
 protected:
+  std::string m_sYuvFileName;
+  std::string m_sIpCrcFileName;
   ofstream YuvFile;
   ofstream IpCrcFile;
 };
 
 BaseOutputWriter::BaseOutputWriter(const string& sYuvFileName, const string& sIPCrcFileName)
 {
-  if(!sYuvFileName.empty())
-  {
-    OpenOutput(YuvFile, sYuvFileName);
-  }
+  // Store the YUV filename, the file should be opened in all calls to a concrete ProcessFrame()
+  m_sYuvFileName = sYuvFileName;
 
-  if(!sIPCrcFileName.empty())
-  {
-    OpenOutput(IpCrcFile, sIPCrcFileName, false);
-    IpCrcFile << hex << uppercase;
-  }
+  // Store the CRC filename, the file should be opened when an attempt is made to write
+  m_sIpCrcFileName = sIPCrcFileName;
 }
 
 void BaseOutputWriter::ProcessOutput(AL_TBuffer& tRecBuf, const AL_TInfoDecode& info, int iBdOut, TFourCC tOutFourCC)
 {
+  if(!m_sIpCrcFileName.empty() && !IpCrcFile.is_open())
+  {
+    OpenOutput(IpCrcFile, m_sIpCrcFileName, false);
+    IpCrcFile << hex << uppercase;
+  }
+
   if(IpCrcFile.is_open())
     IpCrcFile << std::setfill('0') << std::setw(8) << (int)info.uCRC << std::endl;
 
@@ -723,10 +791,11 @@ class UncompressedOutputWriter : public BaseOutputWriter
 public:
   ~UncompressedOutputWriter();
 
-  UncompressedOutputWriter(const string& sYuvFileName, const string& sIPCrcFileName, const string& sCertCrcFileName, const string& sMd5FileName);
+  UncompressedOutputWriter(const string& sYuvFileName, const string& sIPCrcFileName, const string& sCertCrcFileName, const string& sMd5FileName, bool bRawMd5);
   void ProcessFrame(AL_TBuffer& tRecBuf, const AL_TInfoDecode& info, int iBdOut, TFourCC tOutFourCC) override;
 
 private:
+  std::string m_sCertCrcFileName;
   ofstream CertCrcFile; // Cert crc only computed for uncompressed output
   AL_TBuffer* YuvBuffer = NULL;
   Md5Calculator m_Md5Calculator;
@@ -746,15 +815,15 @@ UncompressedOutputWriter::~UncompressedOutputWriter()
   }
 }
 
-UncompressedOutputWriter::UncompressedOutputWriter(const string& sYuvFileName, const string& sIPCrcFileName, const string& sCertCrcFileName, const string& sMd5FileName) :
+UncompressedOutputWriter::UncompressedOutputWriter(const string& sYuvFileName, const string& sIPCrcFileName, const string& sCertCrcFileName, const string& sMd5FileName, bool bRawMd5) :
   BaseOutputWriter(sYuvFileName, sIPCrcFileName),
   m_Md5Calculator(sMd5FileName)
 {
-  if(!sCertCrcFileName.empty())
-  {
-    OpenOutput(CertCrcFile, sCertCrcFileName, false);
-    CertCrcFile << hex << uppercase;
-  }
+  (void)bRawMd5;
+
+  // Store the CRC filename, the file should be opened when an attempt is made to write
+  m_sCertCrcFileName = sCertCrcFileName;
+
 }
 
 int UncompressedOutputWriter::convertBitDepthToEven(int iBd) const
@@ -764,10 +833,33 @@ int UncompressedOutputWriter::convertBitDepthToEven(int iBd) const
 
 void UncompressedOutputWriter::ProcessFrame(AL_TBuffer& tRecBuf, const AL_TInfoDecode& info, int iBdOut, TFourCC tOutFourCC)
 {
-  if(!(YuvFile.is_open() || CertCrcFile.is_open() || m_Md5Calculator.IsFileOpen()))
+  bool bWriteMd5 = m_Md5Calculator.IsFileOpen();
+
+  // Open the YUV file if the filename has been set and it is not already open
+  if(!m_sYuvFileName.empty() && !YuvFile.is_open())
+    OpenOutput(YuvFile, m_sYuvFileName);
+
+  if(!m_sCertCrcFileName.empty() && !CertCrcFile.is_open())
+  {
+    OpenOutput(CertCrcFile, m_sCertCrcFileName, false);
+    CertCrcFile << hex << uppercase;
+  }
+
+  if(!m_sCertCrcFileName.empty() && !CertCrcFile.is_open())
+  {
+    OpenOutput(CertCrcFile, m_sCertCrcFileName, false);
+    CertCrcFile << hex << uppercase;
+  }
+
+  if(!(YuvFile.is_open() || CertCrcFile.is_open() || bWriteMd5))
   {
     return;
   }
+
+  AL_PixMapBuffer_SetDimension(&tRecBuf, info.tDim);
+  AL_TPicFormat fmt = AL_GetDecPicFormat(info.eChromaMode, info.uBitDepthY, info.eFbStorageMode, false);
+  AL_PixMapBuffer_SetFourCC(&tRecBuf, AL_GetDecFourCC(fmt));
+
   iBdOut = convertBitDepthToEven(iBdOut);
 
   bool bCrop = info.tCrop.bCropping;
@@ -802,7 +894,7 @@ void UncompressedOutputWriter::ProcessFrame(AL_TBuffer& tRecBuf, const AL_TInfoD
     WriteOneFrame(YuvFile, YuvBuffer);
   }
 
-  if(m_Md5Calculator.IsFileOpen())
+  if(bWriteMd5)
   {
     ComputeMd5SumFrame(YuvBuffer, m_Md5Calculator.GetCMD5());
   }
@@ -825,7 +917,7 @@ struct Display
     Rtos_DeleteEvent(hExitMain);
   }
 
-  void AddOutputWriter(AL_e_FbStorageMode eFbStorageMode, bool bCompressionEnabled, const string& sYuvFileName, const string& sIPCrcFileName, const string& sCertCrcFileName, const string& sMd5FileName);
+  void AddOutputWriter(AL_e_FbStorageMode eFbStorageMode, bool bCompressionEnabled, const string& sYuvFileName, const string& sIPCrcFileName, const string& sCertCrcFileName, const string& sMd5FileName, bool bRawMd5);
 
   void Process(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo);
   void ProcessFrame(AL_TBuffer& tRecBuf, AL_TInfoDecode info, int iBdOut, TFourCC tFourCCOut);
@@ -873,18 +965,19 @@ struct DecoderErrorParam
 };
 
 /******************************************************************************/
-void Display::AddOutputWriter(AL_e_FbStorageMode eFbStorageMode, bool bCompressionEnabled, const string& sYuvFileName, const string& sIPCrcFileName, const string& sCertCrcFileName, const string& sMd5FileName)
+void Display::AddOutputWriter(AL_e_FbStorageMode eFbStorageMode, bool bCompressionEnabled, const string& sYuvFileName, const string& sIPCrcFileName, const string& sCertCrcFileName, const string& sMd5FileName, bool bRawMd5)
 {
   (void)bCompressionEnabled;
-  {
-    writers[eFbStorageMode] = std::shared_ptr<BaseOutputWriter>(new UncompressedOutputWriter(
-                                                                  sMd5FileName.empty() ? sYuvFileName : "",
-                                                                  sIPCrcFileName,
-                                                                  sCertCrcFileName,
-                                                                  sMd5FileName));
-  }
+
+  writers[eFbStorageMode] = std::shared_ptr<BaseOutputWriter>(new UncompressedOutputWriter(
+                                                                sYuvFileName,
+                                                                sIPCrcFileName,
+                                                                sCertCrcFileName,
+                                                                sMd5FileName,
+                                                                bRawMd5));
 }
 
+/******************************************************************************/
 /******************************************************************************/
 static void printHexdump(ostream* logger, uint8_t* data, int size)
 {
@@ -952,14 +1045,18 @@ static void sInputParsed(AL_TBuffer* pParsedFrame, void* pUserParam, int iParsin
   if(!pHandlesMeta)
     return;
 
-  assert(iParsingID < AL_HandleMetaData_GetNumHandles(pHandlesMeta));
+  if(iParsingID > AL_HandleMetaData_GetNumHandles(pHandlesMeta))
+    throw runtime_error("ParsingID is out of bounds");
 
   AL_TDecMetaHandle* pDecMetaHandle = (AL_TDecMetaHandle*)AL_HandleMetaData_GetHandle(pHandlesMeta, iParsingID);
 
   if(pDecMetaHandle->eState == AL_DEC_HANDLE_STATE_PROCESSED)
   {
     AL_TBuffer* pStream = pDecMetaHandle->pHandle;
-    assert(pStream);
+
+    if(!pStream)
+      throw runtime_error("pStream is not allocated");
+
     auto seiMeta = (AL_TSeiMetaData*)AL_Buffer_GetMetaData(pStream, AL_META_TYPE_SEI);
 
     if(seiMeta != nullptr)
@@ -971,7 +1068,7 @@ static void sInputParsed(AL_TBuffer* pParsedFrame, void* pUserParam, int iParsin
     return;
   }
 
-  assert(0);
+  throw runtime_error("Input parsing error");
 }
 
 /******************************************************************************/
@@ -1057,12 +1154,15 @@ void Display::Process(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo)
   if(isReleaseFrame(pFrame, pInfo))
     return;
 
+  bool bIsExpectedStorageMode = (pInfo->eFbStorageMode == eMainOutputStorageMode);
+
   if(NumFrames < MaxFrames)
   {
     if(err == AL_WARN_CONCEAL_DETECT)
       iNumFrameConceal++;
 
-    assert(AL_Buffer_GetData(pFrame));
+    if(!AL_Buffer_GetData(pFrame))
+      throw runtime_error("Data buffer is null");
 
     int iCurrentBitDepth = max(pInfo->uBitDepthY, pInfo->uBitDepthC);
 
@@ -1075,7 +1175,7 @@ void Display::Process(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo)
 
     ProcessFrame(*pFrame, *pInfo, iEffectiveBitDepth, tOutputFourCC);
 
-    if(pInfo->eFbStorageMode == eMainOutputStorageMode)
+    if(bIsExpectedStorageMode)
     {
       auto pHDR = (AL_THDRMetaData*)AL_Buffer_GetMetaData(pFrame, AL_META_TYPE_HDR);
 
@@ -1086,7 +1186,7 @@ void Display::Process(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo)
     }
   }
 
-  if(pInfo->eFbStorageMode == eMainOutputStorageMode)
+  if(bIsExpectedStorageMode && hDec)
   {
     bool const bAdded = AL_Decoder_PutDisplayPicture(hDec, pFrame);
 
@@ -1102,8 +1202,11 @@ void Display::Process(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo)
 /******************************************************************************/
 void Display::ProcessFrame(AL_TBuffer& tRecBuf, AL_TInfoDecode info, int iBdOut, TFourCC tFourCCOut)
 {
-  if(writers.find(info.eFbStorageMode) != writers.end() && (NumFrames >= FirstFrame))
-    writers[info.eFbStorageMode]->ProcessOutput(tRecBuf, info, iBdOut, tFourCCOut);
+
+  AL_EFbStorageMode eFbStorageMode = info.eFbStorageMode;
+
+  if(writers.find(eFbStorageMode) != writers.end() && (NumFrames >= FirstFrame))
+    writers[eFbStorageMode]->ProcessOutput(tRecBuf, info, iBdOut, tFourCCOut);
 }
 
 static string FourCCToString(TFourCC tFourCC)
@@ -1174,7 +1277,7 @@ void AddHDRMetaData(AL_TBuffer* pBufStream)
     AL_Buffer_AddMetaData(pBufStream, (AL_TMetaData*)pHDReta);
 }
 
-static int sConfigureDecBufPool(PixMapBufPool& SrcBufPool, AL_TPicFormat tPicFormat, AL_TDimension tDim, int iPitchY, bool bPreallocChromaCompat)
+static int sConfigureDecBufPool(PixMapBufPool& SrcBufPool, AL_TPicFormat tPicFormat, AL_TDimension tDim, int iPitchY, bool bConfigurePlanarAndSemiplanar)
 {
   auto const tFourCC = AL_GetDecFourCC(tPicFormat);
   SrcBufPool.SetFormat(tDim, tFourCC);
@@ -1193,7 +1296,8 @@ static int sConfigureDecBufPool(PixMapBufPool& SrcBufPool, AL_TPicFormat tPicFor
     /* We ensure compatibility with 420/422. Only required when we use prealloc configured for
      * 444 chroma-mode (worst case) and the real chroma-mode is unknown. Breaks planes agnostic
      * allocation. */
-    if(bPreallocChromaCompat && usedPlanes[iPlane] == AL_PLANE_U)
+
+    if(bConfigurePlanarAndSemiplanar && usedPlanes[iPlane] == AL_PLANE_U)
       vPlaneDesc.push_back(AL_TPlaneDescription { AL_PLANE_UV, iOffset, iPitch });
 
     iOffset += AL_DecGetAllocSize_Frame_PixPlane(tPicFormat.eStorageMode, tDim, iPitch, tPicFormat.eChromaMode, usedPlanes[iPlane]);
@@ -1224,22 +1328,34 @@ static AL_ERR sResolutionFound(int BufferNumber, int BufferSizeLib, AL_TStreamSe
     return AL_ERROR;
 
   bool bMainOutputCompression;
-  AL_e_FbStorageMode eMainOutputStorageMode = getMainOutputStorageMode(*pDecSettings, bMainOutputCompression, pSettings->iBitDepth);
+  AL_e_FbStorageMode eMainOutputStorageMode = GetMainOutputStorageMode(*pDecSettings, bMainOutputCompression, pSettings->iBitDepth);
 
   auto tPicFormat = AL_GetDecPicFormat(pSettings->eChroma, pSettings->iBitDepth, eMainOutputStorageMode, bMainOutputCompression);
   auto tFourCC = AL_GetDecFourCC(tPicFormat);
 
-  int minPitch = AL_Decoder_GetMinPitch(pSettings->tDim.iWidth, pSettings->iBitDepth, eMainOutputStorageMode);
+  AL_TDimension tOutputDim = pSettings->tDim;
+
+  /* For pre-allocation, we must use 8x8 (HEVC) or MB (AVC) rounded dimensions, like the SPS. */
+  /* Actually, round up to the LCU so we're able to support resolution changes with the same LCU sizes. */
+  /* And because we don't know the codec here, always use 64 as MB/LCU size. */
+  tOutputDim.iWidth = RoundUp(tOutputDim.iWidth, 64);
+  tOutputDim.iHeight = RoundUp(tOutputDim.iHeight, 64);
+
+  auto minPitch = AL_Decoder_GetMinPitch(tOutputDim.iWidth, pSettings->iBitDepth, eMainOutputStorageMode);
 
   /* get size for print */
   int BufferSize = 0;
 
   if(p->bPoolIsInit)
-    BufferSize = AL_DecGetAllocSize_Frame(pSettings->tDim, minPitch, pSettings->eChroma, bMainOutputCompression, eMainOutputStorageMode);
+    BufferSize = AL_DecGetAllocSize_Frame(tOutputDim, minPitch, pSettings->eChroma, bMainOutputCompression, eMainOutputStorageMode);
   else
-    BufferSize = sConfigureDecBufPool(p->bufPool, tPicFormat, pSettings->tDim, minPitch, p->bUsePreAlloc);
+  {
+    bool bConfigurePlanarAndSemiplanar = p->bUsePreAlloc;
+    BufferSize = sConfigureDecBufPool(p->bufPool, tPicFormat, tOutputDim, minPitch, bConfigurePlanarAndSemiplanar);
+  }
 
-  assert(BufferSize >= BufferSizeLib);
+  if(BufferSize < BufferSizeLib)
+    throw runtime_error("Buffer size is insufficient");
 
   showStreamInfo(BufferNumber, BufferSize, pSettings, pCropInfo, tFourCC);
 
@@ -1257,7 +1373,9 @@ static AL_ERR sResolutionFound(int BufferNumber, int BufferSizeLib, AL_TStreamSe
   for(int i = 0; i < iNumBuf; ++i)
   {
     auto pDecPict = p->bufPool.GetBuffer(AL_BUF_MODE_NONBLOCK);
-    assert(pDecPict);
+
+    if(!pDecPict)
+      throw runtime_error("pDecPict is null");
     AL_Buffer_MemSet(pDecPict, 0xDE);
 
     if(p->bAddHDRMetaData)
@@ -1303,7 +1421,9 @@ struct AsyncFileInput
 
       if(AL_IS_ITU_CODEC(eCodec))
         m_Loader.reset(new SplitInput(bufPool.m_pool.zBufSize, eCodec, bVclSplit));
-      assert(m_Loader.get());
+
+      if(!m_Loader.get())
+        throw runtime_error("Null unique pointer");
     }
     else
       m_Loader.reset(new BasicLoader());
@@ -1442,6 +1562,8 @@ void SafeChannelMain(WorkerConfig& w)
 
   AdjustStreamBufferSettings(Config);
 
+  bool bRawMd5 = false;
+
   BufPool bufPool;
 
   {
@@ -1461,7 +1583,7 @@ void SafeChannelMain(WorkerConfig& w)
   Display display;
 
   bool bMainOutputCompression;
-  display.eMainOutputStorageMode = getMainOutputStorageMode(Config.tDecSettings, bMainOutputCompression, 8);
+  display.eMainOutputStorageMode = GetMainOutputStorageMode(Config.tDecSettings, bMainOutputCompression, 8);
 
   bool bHasOutput = Config.bEnableYUVOutput || bCertCRC || !Config.sCrc.empty() || !Config.md5File.empty();
 
@@ -1469,7 +1591,9 @@ void SafeChannelMain(WorkerConfig& w)
   {
     const string sCertCrcFile = bCertCRC ? "crc_certif_res.hex" : "";
 
-    display.AddOutputWriter(display.eMainOutputStorageMode, bMainOutputCompression, Config.sMainOut, Config.sCrc, sCertCrcFile, Config.md5File);
+    {
+      display.AddOutputWriter(display.eMainOutputStorageMode, bMainOutputCompression, Config.sMainOut, Config.sCrc, sCertCrcFile, Config.md5File, bRawMd5);
+    }
 
   }
 
@@ -1512,12 +1636,18 @@ void SafeChannelMain(WorkerConfig& w)
   if(AL_IS_ERROR_CODE(error))
     throw codec_error(error);
 
-  assert(hDec);
+  if(!hDec)
+    throw runtime_error("hDec is null");
 
   auto decoderAlreadyDestroyed = false;
   auto scopeDecoder = scopeExit([&]() {
     if(!decoderAlreadyDestroyed)
+    {
+      display.hMutex.lock();
+      display.hDec = NULL;
+      display.hMutex.unlock();
       AL_Decoder_Destroy(hDec);
+    }
   });
 
   // Param of Display Callback assignment
@@ -1575,7 +1705,6 @@ static void ChannelMain(WorkerConfig& w, std::exception_ptr& exception)
 {
   try
   {
-    Rtos_Sleep(w.pConfig->iStartDelay);
     SafeChannelMain(w);
     exception = nullptr;
     return;
@@ -1626,7 +1755,6 @@ void SafeMain(int argc, char** argv)
   param.bTrackDma = Config.trackDma;
   param.uNumCore = Config.tDecSettings.uNumCore;
   param.iHangers = Config.hangers;
-  param.iInstanceId = Config.tDecSettings.iInstanceId;
   param.ipCtrlMode = Config.ipCtrlMode;
   param.apbFile = Config.apbFile;
 
@@ -1642,12 +1770,10 @@ void SafeMain(int argc, char** argv)
   // mono channel case
   if(maxChan == 0)
   {
-    WorkerConfig w
-    {
-      &cfgChannels[maxChan],
-      pIpDevice.get(),
-      bUseBoard,
-    };
+    WorkerConfig w {};
+    w.pConfig = &cfgChannels[maxChan];
+    w.pIpDevice = pIpDevice.get();
+    w.bUseBoard = bUseBoard;
 
     workerConfigs[maxChan] = w;
     ChannelMain(workerConfigs[maxChan], errorChannels[maxChan]);

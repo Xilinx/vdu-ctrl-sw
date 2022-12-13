@@ -23,8 +23,7 @@
 ******************************************************************************/
 
 #include "lib_app/MD5.h"
-#include <cstring>
-#include <cassert>
+#include <string>
 
 // mix functions for processBlock()
 inline uint32_t F(uint32_t X, uint32_t Y, uint32_t Z)

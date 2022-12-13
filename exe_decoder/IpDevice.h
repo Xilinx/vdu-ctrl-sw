@@ -45,7 +45,6 @@ struct CIpDeviceParam
   int iSchedulerType;
   bool bTrackDma = false;
   uint8_t uNumCore = 0;
-  int iInstanceId = -1;
   int iHangers = 0;
   AL_EIpCtrlMode ipCtrlMode;
   std::string apbFile;

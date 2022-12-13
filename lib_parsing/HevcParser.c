@@ -603,6 +603,9 @@ AL_PARSE_RESULT AL_HEVC_ParseSPS(AL_TRbspParser* pRP, AL_THevcSps* pSPS)
     // check if NAL isn't empty
     COMPLY(more_rbsp_data(pRP));
     AL_HEVC_short_term_ref_pic_set(pSPS, i, pRP);
+
+    pSPS->sps_max_dec_pic_buffering_minus1[pSPS->sps_max_sub_layers_minus1] =
+      Max(pSPS->sps_max_dec_pic_buffering_minus1[pSPS->sps_max_sub_layers_minus1], pSPS->NumDeltaPocs[i]);
   }
 
   pSPS->long_term_ref_pics_present_flag = u(pRP, 1);
@@ -717,8 +720,8 @@ void AL_HEVC_short_term_ref_pic_set(AL_THevcSps* pSPS, uint8_t RefIdx, AL_TRbspP
   }
   else
   {
-    pRefPicSet->num_negative_pics = Clip3(ue(pRP), 0, pSPS->sps_max_dec_pic_buffering_minus1[pSPS->sps_max_sub_layers_minus1]);
-    pRefPicSet->num_positive_pics = Clip3(ue(pRP), 0, pSPS->sps_max_dec_pic_buffering_minus1[pSPS->sps_max_sub_layers_minus1]);
+    pRefPicSet->num_negative_pics = ue(pRP);
+    pRefPicSet->num_positive_pics = ue(pRP);
 
     for(uint8_t j = 0; j < pRefPicSet->num_negative_pics; ++j)
     {
@@ -1091,5 +1094,43 @@ bool AL_HEVC_ParseSEI(AL_TAup* pIAup, AL_TRbspParser* pRP, bool bIsPrefix, AL_CB
   rbsp_trailing_bits(pRP);
 
   return true;
+}
+
+/*****************************************************************************/
+AL_TCropInfo AL_HEVC_GetCropInfo(AL_THevcSps const* pSPS)
+{
+  // update cropping information
+  AL_TCropInfo cropInfo =
+  {
+    0
+  };
+  cropInfo.bCropping = pSPS->conformance_window_flag;
+
+  if(pSPS->conformance_window_flag)
+  {
+    if(pSPS->chroma_format_idc == 1 || pSPS->chroma_format_idc == 2)
+    {
+      cropInfo.uCropOffsetLeft += 2 * pSPS->conf_win_left_offset;
+      cropInfo.uCropOffsetRight += 2 * pSPS->conf_win_right_offset;
+    }
+    else
+    {
+      cropInfo.uCropOffsetLeft += pSPS->conf_win_left_offset;
+      cropInfo.uCropOffsetRight += pSPS->conf_win_right_offset;
+    }
+
+    if(pSPS->chroma_format_idc == 1)
+    {
+      cropInfo.uCropOffsetTop += 2 * pSPS->conf_win_top_offset;
+      cropInfo.uCropOffsetBottom += 2 * pSPS->conf_win_bottom_offset;
+    }
+    else
+    {
+      cropInfo.uCropOffsetTop += pSPS->conf_win_top_offset;
+      cropInfo.uCropOffsetBottom += pSPS->conf_win_bottom_offset;
+    }
+  }
+
+  return cropInfo;
 }
 

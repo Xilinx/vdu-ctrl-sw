@@ -41,10 +41,14 @@ bool AL_NeedsCropping(AL_TCropInfo const* pInfo)
 }
 
 /******************************************************************************/
-int AVC_GetMinOutputBuffersNeeded(int iDpbMaxBuf, int iStack)
+int AVC_GetMinOutputBuffersNeeded(int iDpbMaxBuf, int iStack, bool bDecodeIntraOnly)
 {
   int const iRecBuf = REC_BUF;
   int const iConcealBuf = CONCEAL_BUF;
+
+  if(bDecodeIntraOnly)
+    return iDpbMaxBuf + iRecBuf;
+
   return iDpbMaxBuf + iStack + iRecBuf + iConcealBuf;
 }
 
@@ -54,15 +58,19 @@ int AL_AVC_GetMinOutputBuffersNeeded(AL_TStreamSettings const* pStreamSettings, 
   if(AL_IS_INTRA_PROFILE(pStreamSettings->eProfile))
     return iStack;
 
-  int const iDpbMaxBuf = AL_AVC_GetMaxDPBSize(pStreamSettings->iLevel, pStreamSettings->tDim.iWidth, pStreamSettings->tDim.iHeight);
-  return AVC_GetMinOutputBuffersNeeded(iDpbMaxBuf, iStack);
+  int const iDpbMaxBuf = AL_AVC_GetMaxDPBSize(pStreamSettings->iLevel, pStreamSettings->tDim.iWidth, pStreamSettings->tDim.iHeight, 0, AL_IS_INTRA_PROFILE(pStreamSettings->eProfile), pStreamSettings->bDecodeIntraOnly);
+  return AVC_GetMinOutputBuffersNeeded(iDpbMaxBuf, iStack, pStreamSettings->bDecodeIntraOnly);
 }
 
 /******************************************************************************/
-int HEVC_GetMinOutputBuffersNeeded(int iDpbMaxBuf, int iStack)
+int HEVC_GetMinOutputBuffersNeeded(int iDpbMaxBuf, int iStack, bool bDecodeIntraOnly)
 {
   int const iRecBuf = 0;
   int const iConcealBuf = CONCEAL_BUF;
+
+  if(bDecodeIntraOnly)
+    return 2 + iRecBuf;
+
   return iDpbMaxBuf + iStack + iRecBuf + iConcealBuf;
 }
 
@@ -75,7 +83,7 @@ int AL_HEVC_GetMinOutputBuffersNeeded(AL_TStreamSettings const* pStreamSettings,
   if(AL_IS_INTRA_PROFILE(pStreamSettings->eProfile))
     return Max(2, iStack);
 
-  int const iDpbMaxBuf = AL_HEVC_GetMaxDPBSize(pStreamSettings->iLevel, pStreamSettings->tDim.iWidth, pStreamSettings->tDim.iHeight);
-  return HEVC_GetMinOutputBuffersNeeded(iDpbMaxBuf, iStack);
+  int const iDpbMaxBuf = AL_HEVC_GetMaxDPBSize(pStreamSettings->iLevel, pStreamSettings->tDim.iWidth, pStreamSettings->tDim.iHeight, AL_IS_INTRA_PROFILE(pStreamSettings->eProfile), AL_IS_STILL_PROFILE(pStreamSettings->eProfile), pStreamSettings->bDecodeIntraOnly);
+  return HEVC_GetMinOutputBuffersNeeded(iDpbMaxBuf, iStack, pStreamSettings->bDecodeIntraOnly);
 }
 
