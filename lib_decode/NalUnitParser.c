@@ -1,6 +1,6 @@
 /******************************************************************************
 *
-* Copyright (C) 2015-2022 Allegro DVT2
+* Copyright (C) 2015-2023 Allegro DVT2
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -188,11 +188,11 @@ bool SkipNal(void)
 }
 
 /*****************************************************************************/
-AL_TRbspParser getParserOnNonVclNal(AL_TDecCtx* pCtx, uint8_t* pBufNoAE)
+AL_TRbspParser getParserOnNonVclNal(AL_TDecCtx* pCtx, uint8_t* pBufNoAE, int32_t pBufNoAESize)
 {
   TCircBuffer* pBufStream = &pCtx->Stream;
   AL_TRbspParser rp;
-  InitRbspParser(pBufStream, pBufNoAE, true, &rp);
+  InitRbspParser(pBufStream, pBufNoAE, pBufNoAESize, true, &rp);
   return rp;
 }
 
@@ -200,6 +200,6 @@ AL_TRbspParser getParserOnNonVclNal(AL_TDecCtx* pCtx, uint8_t* pBufNoAE)
 AL_TRbspParser getParserOnNonVclNalInternalBuf(AL_TDecCtx* pCtx)
 {
   InitNonVclBuf(pCtx);
-  return getParserOnNonVclNal(pCtx, pCtx->BufNoAE.tMD.pVirtualAddr);
+  return getParserOnNonVclNal(pCtx, pCtx->BufNoAE.tMD.pVirtualAddr, pCtx->BufNoAE.tMD.uSize);
 }
 

@@ -1,6 +1,6 @@
 /******************************************************************************
 *
-* Copyright (C) 2015-2022 Allegro DVT2
+* Copyright (C) 2015-2023 Allegro DVT2
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -1614,14 +1614,20 @@ void AL_Dpb_ModifShortTerm(AL_TDpb const* pDpb, AL_TAvcSliceHdr const* pSlice, i
   {
     if((pNodes[uCpt].iPic_num == iPicNum) && (pNodes[uCpt].eMarking_flag == SHORT_TERM_REF))
     {
-      (*pListRef)[iL0L1][(*pRefIdx)++].uNodeID = pNodes[uCpt].uNodeID;
+      (*pListRef)[iL0L1][(*pRefIdx)].uNodeID = pNodes[uCpt].uNodeID;
+      (*pRefIdx)++;
 
       uint8_t unIdx = *pRefIdx;
 
       for(uCpt = *pRefIdx; uCpt <= uNumRef; ++uCpt)
       {
         if(AL_Dpb_sPicNumF(pDpb, pSlice, (*pListRef)[iL0L1][uCpt].uNodeID) != iPicNum)
-          (*pListRef)[iL0L1][unIdx++] = (*pListRef)[iL0L1][uCpt];
+        {
+          // avoid memcpy if source == destination
+          if(unIdx != uCpt)
+            (*pListRef)[iL0L1][unIdx] = (*pListRef)[iL0L1][uCpt];
+          unIdx++;
+        }
       }
 
       break;

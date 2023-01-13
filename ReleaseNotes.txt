@@ -47,4 +47,14 @@
         * Streams concealment
         * Potential deadlock if channel isn't created due to resource shortage
       - Decode Intra only should now use a correct amount of buffers
-  -- Several minors bugs
+    -- Several minors bugs
+
+2023-01-13 (v1.0.72)
+-------------------
+  Added Features:
+
+  API:
+
+  Fixes:
+    -- Dates
+    -- Several minors bugs

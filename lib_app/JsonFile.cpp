@@ -1,6 +1,6 @@
 /******************************************************************************
 *
-* Copyright (C) 2015-2022 Allegro DVT2
+* Copyright (C) 2015-2023 Allegro DVT2
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -421,12 +421,14 @@ void CJsonWriter::WriteObject(std::ofstream& ofs, const TJsonValue& tValue, int 
   {
     NextLineAlignment(ofs, iTab + 1);
 
-    ofs << "\"" << tSubValue.first << "\" : ";
+    ofs << "\"" << tSubValue.first << "\":";
 
     bool bIsOneLiner = IsOneLiner(tSubValue.second);
 
     if(!bIsOneLiner)
       NextLineAlignment(ofs, iTab + 1);
+    else
+      ofs << " ";
 
     WriteValue(ofs, tSubValue.second, iTab + 1);
 

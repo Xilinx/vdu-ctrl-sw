@@ -1,6 +1,6 @@
 /******************************************************************************
 *
-* Copyright (C) 2015-2022 Allegro DVT2
+* Copyright (C) 2015-2023 Allegro DVT2
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -27,6 +27,6 @@
 void UpdateCircBuffer(AL_TRbspParser* pRP, TCircBuffer* pBufStream, int* pSliceHdrLength);
 bool SkipNal(void);
 
-AL_TRbspParser getParserOnNonVclNal(AL_TDecCtx* pCtx, uint8_t* pBuf);
+AL_TRbspParser getParserOnNonVclNal(AL_TDecCtx* pCtx, uint8_t* pBuf, int32_t pBufNoAESize);
 AL_TRbspParser getParserOnNonVclNalInternalBuf(AL_TDecCtx* pCtx);
 

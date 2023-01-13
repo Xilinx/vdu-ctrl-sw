@@ -10,4 +10,3 @@ ENABLE_AVC?=1
 ENABLE_HEVC?=1
 
 CONFIG=include/config.h
-

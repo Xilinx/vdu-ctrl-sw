@@ -1,6 +1,6 @@
 /******************************************************************************
 *
-* Copyright (C) 2015-2022 Allegro DVT2
+* Copyright (C) 2015-2023 Allegro DVT2
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -105,9 +105,12 @@ static bool fetch_data(AL_TRbspParser* pRP)
   if(finished_fetching(pRP))
     return false;
 
-  uint32_t uWrite = 0;
+  int const byte_offset = (int)(pRP->iTrailingBitOneIndex >> 3);
 
-  int byte_offset = (int)(pRP->iTrailingBitOneIndex >> 3);
+  if(byte_offset >= pRP->iBufOutSize)
+    return false;
+
+  uint32_t uWrite = 0;
   uint8_t* pBuf = pRP->pBufIn;
   uint8_t* pBufOut = &pRP->pBuffer[byte_offset];
 
@@ -119,7 +122,7 @@ static bool fetch_data(AL_TRbspParser* pRP)
 
   // Replaces in pBuffer all sequences such as 0x00 0x00 0x03 0xZZ with 0x00 0x00 0xZZ (0x03 removal)
   // iff 0xZZ == 0x00 or 0x01 or 0x02 or 0x03.
-  for(uint32_t uRead = uOffset; uRead < uEnd && pRP->iBufInAvailSize > 0; ++uRead)
+  for(uint32_t uRead = uOffset; (uRead < uEnd) && (pRP->iBufInAvailSize > 0) && ((uWrite + byte_offset) < (uint32_t)pRP->iBufOutSize); ++uRead)
   {
     pRP->iBufInOffset = (pRP->iBufInOffset + 1) % pRP->iBufInSize;
     --pRP->iBufInAvailSize;
@@ -159,16 +162,17 @@ static bool fetch_data(AL_TRbspParser* pRP)
 }
 
 /*****************************************************************************/
-void InitRbspParser(TCircBuffer const* pStream, uint8_t* pBuffer, bool bHasSC, AL_TRbspParser* pRP)
+void InitRbspParser(TCircBuffer const* pStream, uint8_t* pNoAEBuffer, int32_t pNoAESize, bool bHasSC, AL_TRbspParser* pRP)
 {
-  pRP->pBuffer = pBuffer;
+  pRP->pBuffer = pNoAEBuffer;
+  pRP->iBufOutSize = pNoAESize;
 
   pRP->iTotalBitIndex = 0;
   pRP->iTrailingBitOneIndex = 0;
   pRP->iTrailingBitOneIndexConceal = 0;
   pRP->uNumScDetect = 0;
   pRP->uZeroBytesCount = 0;
-  pRP->pByte = pBuffer;
+  pRP->pByte = pNoAEBuffer;
 
   pRP->pBufIn = pStream->tMD.pVirtualAddr;
   pRP->iBufInSize = pStream->tMD.uSize;

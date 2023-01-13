@@ -1,6 +1,6 @@
 /******************************************************************************
 *
-* Copyright (C) 2015-2022 Allegro DVT2
+* Copyright (C) 2015-2023 Allegro DVT2
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -23,7 +23,7 @@
 ******************************************************************************/
 
 #include "lib_decode/lib_decode.h"
-#include "lib_decode/LibDecodeHost.h"
+#include "lib_decode/LibDecoderHost.h"
 
 /* Initialize with decHost so AL_Lib_Decoder_Init() call is optionnal for the
  * time being.

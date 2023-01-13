@@ -1,6 +1,6 @@
 /******************************************************************************
 *
-* Copyright (C) 2015-2022 Allegro DVT2
+* Copyright (C) 2015-2023 Allegro DVT2
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -43,4 +43,8 @@ AL_PADDR AL_Buffer_GetPhysicalAddress(const AL_TBuffer* pBuf);
    0 otherwise
 *****************************************************************************/
 AL_PADDR AL_Buffer_GetPhysicalAddressChunk(const AL_TBuffer* pBuf, int iChunkIdx);
+
+/* debug funcs */
+AL_VADDR AL_Buffer_GetVirtualAddress(const AL_TBuffer* hBuf);
+AL_VADDR AL_Buffer_GetVirtualAddressChunk(const AL_TBuffer* hBuf, int iChunkIdx);
 

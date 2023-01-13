@@ -1,6 +1,6 @@
 /******************************************************************************
 *
-* Copyright (C) 2015-2022 Allegro DVT2
+* Copyright (C) 2015-2023 Allegro DVT2
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -58,6 +58,8 @@ typedef enum AL_e_Codec
   AL_CODEC_VP9 = 3,
   AL_CODEC_JPEG = 4,
   AL_CODEC_VVC = 5,
+  AL_CODEC_MPEG2 = 6,
+  AL_CODEC_AVC_I = 7,
   AL_CODEC_INVALID, /* sentinel */
 }AL_ECodec;
 
@@ -144,6 +146,16 @@ static inline int AL_GET_PROFILE_IDC(AL_EProfile eProfile)
 #define AL_GET_CS_FLAGS(Prof) ((Prof & 0x00FFFF00) >> 8)
 
 /****************************************************************************/
+static inline bool AL_HAS_LEVEL(AL_EProfile eProfile)
+{
+  AL_ECodec eCodec = AL_GET_CODEC(eProfile);
+  switch(eCodec)
+  {
+  default: return false;
+  }
+}
+
+/****************************************************************************/
 static inline bool AL_IS_VP9(AL_EProfile eProfile)
 {
   (void)eProfile;
@@ -169,6 +181,18 @@ static inline bool AL_IS_AOM(AL_EProfile eProfile)
 static inline bool AL_IS_AOM_CODEC(AL_ECodec eCodec)
 {
   return ((eCodec) == AL_CODEC_VP9) || ((eCodec) == AL_CODEC_AV1);
+}
+
+/****************************************************************************/
+static inline bool AL_IS_D105_CODEC(AL_ECodec eCodec)
+{
+  return ((eCodec) == AL_CODEC_MPEG2) || ((eCodec) == AL_CODEC_AVC_I);
+}
+
+/****************************************************************************/
+static inline bool AL_IS_LIB_MVD_CODEC(AL_ECodec eCodec)
+{
+  return AL_IS_AOM_CODEC(eCodec) || AL_IS_D105_CODEC(eCodec);
 }
 
 /****************************************************************************/
