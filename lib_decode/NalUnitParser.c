@@ -1,4 +1,9 @@
 /******************************************************************************
+* The VDU_MCU_firmware files distributed with this project are provided in binary
+* form under the following license; source files are not provided.
+*
+* While the following license is similar to the MIT open-source license,
+* it is NOT the MIT open source license or any other OSI-approved open-source license.
 *
 * Copyright (C) 2015-2023 Allegro DVT2
 *
@@ -188,11 +193,11 @@ bool SkipNal(void)
 }
 
 /*****************************************************************************/
-AL_TRbspParser getParserOnNonVclNal(AL_TDecCtx* pCtx, uint8_t* pBufNoAE, int32_t pBufNoAESize)
+AL_TRbspParser getParserOnNonVclNal(AL_TDecCtx* pCtx, uint8_t* pBufNoAE, int32_t iBufNoAESize)
 {
   TCircBuffer* pBufStream = &pCtx->Stream;
   AL_TRbspParser rp;
-  InitRbspParser(pBufStream, pBufNoAE, pBufNoAESize, true, &rp);
+  InitRbspParser(pBufStream, pBufNoAE, iBufNoAESize, true, &rp);
   return rp;
 }
 

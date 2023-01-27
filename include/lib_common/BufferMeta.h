@@ -1,4 +1,9 @@
 /******************************************************************************
+* The VDU_MCU_firmware files distributed with this project are provided in binary
+* form under the following license; source files are not provided.
+*
+* While the following license is similar to the MIT open-source license,
+* it is NOT the MIT open source license or any other OSI-approved open-source license.
 *
 * Copyright (C) 2015-2023 Allegro DVT2
 *
@@ -56,7 +61,7 @@ typedef bool (* AL_FCN_MetaDestroy) (AL_TMetaData* pMeta);
 typedef AL_TMetaData* (* AL_FCN_MetaClone) (AL_TMetaData* pMeta);
 
 /*************************************************************************//*!
-   \brief Metadatas are used to add useful informations to a buffer. The user
+   \brief Metadatas are used to add useful information to a buffer. The user
    can also define his own metadata type and bind it to the buffer.
 *****************************************************************************/
 struct al_t_MetaData

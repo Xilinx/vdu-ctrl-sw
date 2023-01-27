@@ -1,4 +1,9 @@
 /******************************************************************************
+* The VDU_MCU_firmware files distributed with this project are provided in binary
+* form under the following license; source files are not provided.
+*
+* While the following license is similar to the MIT open-source license,
+* it is NOT the MIT open source license or any other OSI-approved open-source license.
 *
 * Copyright (C) 2015-2023 Allegro DVT2
 *
@@ -24,7 +29,6 @@
 
 #include "FrameParam.h"
 #include "I_DecoderCtx.h"
-#include "I_DecSchedulerInfo.h"
 #include "DefaultDecoder.h"
 #include "SliceDataParsing.h"
 #include "NalUnitParserPrivate.h"
@@ -40,6 +44,8 @@
 #include "lib_common_dec/DecInfo.h"
 #include "lib_common_dec/Defines_mcu.h"
 #include "lib_common_dec/HDRMeta.h"
+
+#include "lib_decode/I_DecSchedulerInfo.h"
 
 #include "lib_parsing/HevcParser.h"
 #include "lib_parsing/Hevc_PictMngr.h"

@@ -5,7 +5,7 @@
 
   API:
     -- Version of the API is now 0.31.0
-    -- Add '--instance-id' to specificy the decoding instance
+    -- Add '--instance-id' to specify the decoding instance
 
 2022-06-30 (v1.0.71)
 -------------------
@@ -19,8 +19,8 @@
       - Move FrameReader.h and NonCompFrameReader.h into the public API (/include)
     -- lib_common:
       - Rename: AL_ERR_CHAN_CREATION_NOT_ENOUGH_CORES -> AL_ERR_CHAN_CREATION_LOAD_DISTRIBUTION
-      - Add: AL_ERR_REQUEST_INVALID_MAX_HEIGHT: when the maximal height for HW is excedeed
-      - Add: AL_ERR_CHAN_CREATION_HW_CAPACITY_EXCEEDED: when the HW capacity is excedeed
+      - Add: AL_ERR_REQUEST_INVALID_MAX_HEIGHT: when the maximal height for HW is exceeded
+      - Add: AL_ERR_CHAN_CREATION_HW_CAPACITY_EXCEEDED: when the HW capacity is exceeded
       - Move: AL_TPlaneDescription from PixMapBuffer.h to Planes.h
       - Rename: AVC_PROFILE_IDC_CAVLC_444 -> AVC_PROFILE_IDC_CAVLC_444_INTRA: since it's an intra only profile
       - Add: AL_GetMinimalNalSize() function
@@ -38,7 +38,7 @@
     -- Version of the API is now 0.34.0
     -- Decoder:
       - bDecodeIntraOnly is now part of AL_TStreamSettings
-      - Removes '--instance-id' to specificy decoding instance
+      - Removes '--instance-id' to specify decoding instance
 
   Fixes:
     -- Licensing
@@ -47,14 +47,22 @@
         * Streams concealment
         * Potential deadlock if channel isn't created due to resource shortage
       - Decode Intra only should now use a correct amount of buffers
-    -- Several minors bugs
+  -- Several minors bugs
 
-2023-01-13 (v1.0.72)
--------------------
+2023-01-27 (v1.0.73)
+--------------------
   Added Features:
+    -- Decoder:
+      - Getter and Setter for scheduler
 
   API:
+    -- Version of the API is now 0.35.0
+    -- Conv YUV:
+      - rename CRasterSrcConv -> CYuvSrcConv
+    -- Decoder:
+      - add AL_IDecScheduler_Get, AL_IDecScheduler_Set as scheduler getter and setter
 
   Fixes:
-    -- Dates
+    -- Licensing
+    -- Tons of typos
     -- Several minors bugs

@@ -1,4 +1,9 @@
 /******************************************************************************
+* The VDU_MCU_firmware files distributed with this project are provided in binary
+* form under the following license; source files are not provided.
+*
+* While the following license is similar to the MIT open-source license,
+* it is NOT the MIT open source license or any other OSI-approved open-source license.
 *
 * Copyright (C) 2015-2023 Allegro DVT2
 *
@@ -213,6 +218,11 @@ static inline bool AL_IS_AVC(AL_EProfile eProfile)
 static inline bool AL_IS_HEVC(AL_EProfile eProfile)
 {
   return AL_GET_CODEC(eProfile) == AL_CODEC_HEVC;
+}
+
+static inline bool AL_IS_ITU(AL_EProfile eProfile)
+{
+  return AL_IS_AVC(eProfile) || AL_IS_HEVC(eProfile);
 }
 
 /****************************************************************************/
