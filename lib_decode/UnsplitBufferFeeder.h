@@ -1,10 +1,4 @@
 /******************************************************************************
-* The VDU_MCU_firmware files distributed with this project are provided in binary
-* form under the following license; source files are not provided.
-*
-* While the following license is similar to the MIT open-source license,
-* it is NOT the MIT open source license or any other OSI-approved open-source license.
-*
 * Copyright (C) 2015-2023 Allegro DVT2
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
