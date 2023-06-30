@@ -21,8 +21,12 @@
 *
 ******************************************************************************/
 
+#include <iostream>
 #include <stdexcept>
 #include <memory>
+
+#include <dirent.h>
+#include <cstring>
 
 #include "IpDevice.h"
 #include "lib_app/console.h"
@@ -60,32 +64,88 @@ AL_TAllocator* CreateProxyAllocator(char const*)
 
 void CIpDevice::ConfigureMcu(AL_TDriver* driver, bool useProxy)
 {
-  if(useProxy)
-    m_pAllocator = CreateProxyAllocator(g_DecDevicePath.c_str());
-  else
-    m_pAllocator = createDmaAllocator(g_DecDevicePath.c_str());
 
-  if(!m_pAllocator)
-    throw runtime_error("Can't open DMA allocator");
+  if(m_bDeviceisPresent){
+   int i = 0;
 
-  m_pScheduler = AL_DecSchedulerMcu_Create(driver, g_DecDevicePath.c_str());
+   if(useProxy)
+    m_pAllocator[i] = CreateProxyAllocator(g_DecDevicePath.c_str());
+   else
+    m_pAllocator[i] = createDmaAllocator(g_DecDevicePath.c_str());
 
-  if(!m_pScheduler)
-    throw runtime_error("Failed to create MCU scheduler");
+   if(!m_pAllocator[i])
+     throw runtime_error("Can't open DMA allocator");
+
+   m_pScheduler[i] = AL_DecSchedulerMcu_Create(driver, g_DecDevicePath.c_str());
+
+   if(!m_pScheduler[i])
+     throw runtime_error("Failed to create MCU scheduler");
+  }else{
+   for(int i = 0; i < m_nIPDevices; i++)
+   {
+    string sDevice_name = string("/dev/allegroDecodeIP") + to_string(i);
+    char const* device_name = sDevice_name.c_str();
+
+    if(useProxy)
+      m_pAllocator[i] = CreateProxyAllocator(device_name);
+    else
+      m_pAllocator[i] = createDmaAllocator(device_name);
+
+    if(!m_pAllocator[i])
+      throw runtime_error("Can't open DMA allocator");
+
+    m_pScheduler[i] = AL_DecSchedulerMcu_Create(driver, device_name/*g_DecDevicePath.c_str()*/);
+
+    if(!m_pScheduler[i])
+      throw runtime_error("Failed to create MCU scheduler");
+   }
+  }
 }
 
 CIpDevice::~CIpDevice()
 {
-  if(m_pScheduler)
-    AL_IDecScheduler_Destroy(m_pScheduler);
+ if(m_bDeviceisPresent){
+    int i = 0;
+    if(m_pScheduler[i])
+        AL_IDecScheduler_Destroy(m_pScheduler[i]);
 
-  if(m_pAllocator)
-    AL_Allocator_Destroy(m_pAllocator);
+      if(m_pAllocator[i])
+        AL_Allocator_Destroy(m_pAllocator[i]);
+  }else{
+    for(int i = 0; i < m_nIPDevices; i++)
+    {
+      if(m_pScheduler[i])
+        AL_IDecScheduler_Destroy(m_pScheduler[i]);
+
+      if(m_pAllocator[i])
+        AL_Allocator_Destroy(m_pAllocator[i]);
+    }
+  }
+}
+
+int CIpDevice::CountIPDevices()
+{
+  DIR* directory = opendir("/dev");
+  if (directory == nullptr) {
+          cerr<< "Error: could not open directory\n";
+  }
+
+  struct dirent* entry;
+  int count = 0;
+  while ((entry = readdir(directory)) != nullptr) {
+         if (std::strncmp(entry->d_name, "allegroDecodeIP", 15) == 0) {
+                 ++count;
+         }
+  }
+  m_nIPDevices = count;
+  closedir(directory);
+  return count;
 }
 
 void CIpDevice::Configure(CIpDeviceParam& param)
 {
 
+  m_bDeviceisPresent = param.bDeviceisPresent;
   if(param.iSchedulerType == AL_SCHEDULER_TYPE_MCU)
   {
     ConfigureMcu(AL_GetHardwareDriver(), false);

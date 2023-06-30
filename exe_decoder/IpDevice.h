@@ -36,6 +36,9 @@ typedef struct AL_i_DecScheduler AL_IDecScheduler;
 typedef struct AL_t_IpCtrl AL_TIpCtrl;
 typedef struct AL_t_Timer AL_Timer;
 typedef struct AL_t_driver AL_TDriver;
+#define MAX_RESOURCE 100000000000
+#define MIN_RESOURCE 480012
+
 
 /*****************************************************************************/
 struct CIpDeviceParam
@@ -47,6 +50,7 @@ struct CIpDeviceParam
   int iHangers = 0;
   AL_EIpCtrlMode ipCtrlMode;
   std::string apbFile;
+  bool bDeviceisPresent;
 };
 
 /*****************************************************************************/
@@ -57,29 +61,32 @@ public:
   ~CIpDevice();
 
   void Configure(CIpDeviceParam& param);
-  AL_IDecScheduler* GetScheduler();
-  AL_TAllocator* GetAllocator();
+  AL_IDecScheduler* GetScheduler(int i);
+  AL_TAllocator* GetAllocator(int i);
   AL_Timer* GetTimer();
+  int CountIPDevices();
 
   CIpDevice(CIpDevice const &) = delete;
   CIpDevice & operator = (CIpDevice const &) = delete;
 
 private:
-  AL_IDecScheduler* m_pScheduler = nullptr;
-  AL_TAllocator* m_pAllocator = nullptr;
+  AL_IDecScheduler* m_pScheduler[4] {nullptr};
+  AL_TAllocator* m_pAllocator[4] {nullptr};
   AL_Timer* m_pTimer = nullptr;
+  int m_nIPDevices = 0;
+  bool m_bDeviceisPresent = false;
 
   void ConfigureMcu(AL_TDriver* driver, bool useProxy);
 };
 
-inline AL_IDecScheduler* CIpDevice::GetScheduler()
+inline AL_IDecScheduler* CIpDevice::GetScheduler(int i)
 {
-  return m_pScheduler;
+  return m_pScheduler[i];
 }
 
-inline AL_TAllocator* CIpDevice::GetAllocator()
+inline AL_TAllocator* CIpDevice::GetAllocator(int i)
 {
-  return m_pAllocator;
+  return m_pAllocator[i];
 }
 
 inline AL_Timer* CIpDevice::GetTimer()

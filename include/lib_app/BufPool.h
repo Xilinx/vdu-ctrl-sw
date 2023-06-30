@@ -197,6 +197,11 @@ struct BufPool : public BaseBufPool
   {
     return AL_BufPool_Init(&m_pool, pAllocator, &config);
   }
+
+  void DeInit(){
+     AL_BufPool_Deinit(&m_pool);
+  }
+
 };
 
 #endif

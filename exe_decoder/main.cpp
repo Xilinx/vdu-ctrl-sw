@@ -35,6 +35,8 @@
 #include <map>
 #include <thread>
 #include <algorithm>
+#include <array>
+#include <memory>
 
 extern "C"
 {
@@ -48,6 +50,11 @@ extern "C"
 #include "lib_common/BufferHandleMeta.h"
 #include "lib_common/BufferSeiMeta.h"
 #include "lib_common_dec/HDRMeta.h"
+#include "lib_decode/lib_decode.h"
+#include "lib_decode/I_DecSchedulerInfo.h"
+#include "lib_decode/DecSchedulerMcu.h"
+#include "lib_fpga/DmaAlloc.h"
+
 }
 
 #include "lib_app/BufPool.h"
@@ -141,6 +148,7 @@ struct Config
   string hdrFile = "";
   bool bUsePreAlloc = false;
   EDecErrorLevel eExitCondition = DEC_ERROR;
+  bool bDeviceisPresent = false;
 };
 
 /******************************************************************************/
@@ -610,6 +618,7 @@ static Config ParseCommandLine(int argc, char* argv[])
   opt.addUint("--conceal-max-fps", &Config.tDecSettings.uConcealMaxFps, "Maximum fps to conceal invalid or corrupted stream header; 0 = no concealment");
 
   bool bHasDeprecated = opt.parse(argc, argv);
+  Config.bDeviceisPresent = g_DecDevicePath != "/dev/allegroDecodeIP";
 
   if(Config.help)
   {
@@ -970,6 +979,10 @@ struct DecoderErrorParam
 void Display::AddOutputWriter(AL_e_FbStorageMode eFbStorageMode, bool bCompressionEnabled, const string& sYuvFileName, const string& sIPCrcFileName, const string& sCertCrcFileName, const string& sMd5FileName, bool bRawMd5)
 {
   (void)bCompressionEnabled;
+
+  //Remove the existing UncompressedOutputWriter if present
+  if(writers[eFbStorageMode])
+    writers[eFbStorageMode].reset(); //Reset the shared_ptr
 
   writers[eFbStorageMode] = std::shared_ptr<BaseOutputWriter>(new UncompressedOutputWriter(
                                                                 sYuvFileName,
@@ -1529,8 +1542,13 @@ void AdjustStreamBufferSettings(Config& config)
 
 void SafeChannelMain(WorkerConfig& w)
 {
-  auto pAllocator = w.pIpDevice->GetAllocator();
-  auto pScheduler = w.pIpDevice->GetScheduler();
+  //auto pAllocator = w.pIpDevice->GetAllocator();
+  //auto pScheduler = w.pIpDevice->GetScheduler();
+
+  int const nIPDevices = w.pIpDevice->CountIPDevices();
+  AL_TAllocator* pAllocators[4] {nullptr};
+  AL_IDecScheduler* pScheduler[4] {nullptr};
+
   auto& Config = *w.pConfig;
   bool bUseBoard = w.bUseBoard;
 
@@ -1566,6 +1584,66 @@ void SafeChannelMain(WorkerConfig& w)
 
   AdjustStreamBufferSettings(Config);
 
+//*******************************************************************************************//
+  AL_TISchedulerCore coreInfo[4];
+  long int lowest_resources = MAX_RESOURCE;
+  int best_scheduler = -1;
+  int lowest_index = 0;
+  int failed_devices[4] = {0};
+  int failed_lowest_resources = 0;
+  bool bAllDevicesFailed = false;
+
+  if(!Config.bDeviceisPresent){
+   findDecDev:
+     bAllDevicesFailed = false;
+     int nFailedDevices = 0;
+
+     for(int i = 0; i <nIPDevices; i++){
+        if(failed_devices[i] != 0){
+            nFailedDevices++;
+            continue;  //Skip the devices if it has previously failed
+        }
+
+        int total_resources = 0;
+        Rtos_Memset(&coreInfo[i], 0, sizeof(coreInfo[i]));
+        pScheduler[i] = w.pIpDevice->GetScheduler(i);
+        pAllocators[i]= w.pIpDevice->GetAllocator(i);
+
+        if(pScheduler[i] == nullptr)
+         throw runtime_error(string("Can't create MCU Scheduler") + to_string(i));
+
+        AL_IDecScheduler_Get((AL_IDecScheduler const*)pScheduler[i], AL_ISCHEDULER_CORE, &coreInfo[i]);
+
+        for(int j = 0; j < AL_DEC_NUM_CORES; j++){
+                total_resources += coreInfo[i].iVideoResource[j];
+        }
+        if(total_resources <= MIN_RESOURCE){
+           nFailedDevices++;
+           continue;
+        }
+
+        if(total_resources < lowest_resources)
+        {
+           lowest_resources = total_resources;
+           lowest_index = i;
+        }
+     }
+      best_scheduler = lowest_index;
+
+     if(nFailedDevices == nIPDevices)
+     {
+       bAllDevicesFailed = true;
+     }
+  }else{
+     int i = 0;
+     pScheduler[i] = w.pIpDevice->GetScheduler(i);
+     pAllocators[i]= w.pIpDevice->GetAllocator(i);
+     best_scheduler = 0;
+  }
+
+//******************************************************************************************//
+
+
   bool bRawMd5 = false;
 
   BufPool bufPool;
@@ -1576,8 +1654,9 @@ void SafeChannelMain(WorkerConfig& w)
     BufPoolConfig.zBufSize = Config.zInputBufferSize;
     BufPoolConfig.uNumBuf = Config.uInputBufferNum;
 
-    auto pBufPoolAllocator = Config.tDecSettings.eInputMode == AL_DEC_SPLIT_INPUT ? pAllocator : AL_GetDefaultAllocator();
+    auto pBufPoolAllocator = Config.tDecSettings.eInputMode == AL_DEC_SPLIT_INPUT ? pAllocators[best_scheduler] : AL_GetDefaultAllocator();
 
+    bufPool.DeInit();   //DeInitialize before initializing, if there is any previous initialization
     auto ret = bufPool.Init(pBufPoolAllocator, BufPoolConfig);
 
     if(!ret)
@@ -1605,12 +1684,15 @@ void SafeChannelMain(WorkerConfig& w)
   display.tOutputFourCC = Config.tOutputFourCC;
   display.MaxFrames = Config.iMaxFrames;
 
-  if(!Config.hdrFile.empty())
+  if(!Config.hdrFile.empty()){
+    if (display.pHDRWriter)
+      display.pHDRWriter.reset(); // Reset the shared_ptr
     display.pHDRWriter = shared_ptr<HDRWriter>(new HDRWriter(Config.hdrFile));
+  }
 
   ResChgParam ResolutionFoundParam;
   ResolutionFoundParam.bUsePreAlloc = Config.bUsePreAlloc;
-  ResolutionFoundParam.pAllocator = pAllocator;
+  ResolutionFoundParam.pAllocator = pAllocators[best_scheduler];
   ResolutionFoundParam.bPoolIsInit = false;
   ResolutionFoundParam.pDecSettings = &Config.tDecSettings;
   ResolutionFoundParam.tOutputPosition = Config.tDecSettings.tOutputPosition;
@@ -1635,7 +1717,9 @@ void SafeChannelMain(WorkerConfig& w)
   AL_HDecoder hDec;
   AL_ERR error;
 
-  error = AL_Decoder_Create(&hDec, (AL_IDecScheduler*)pScheduler, pAllocator, &Config.tDecSettings, &CB);
+  int i = 0;
+  i = best_scheduler;
+  error = AL_Decoder_Create(&hDec, (AL_IDecScheduler*)pScheduler[i], pAllocators[i], &Config.tDecSettings, &CB);
 
   if(AL_IS_ERROR_CODE(error))
     throw codec_error(error);
@@ -1695,8 +1779,40 @@ void SafeChannelMain(WorkerConfig& w)
   unique_lock<mutex> lock(display.hMutex);
   auto eErr = AL_Decoder_GetLastError(hDec);
 
-  if(AL_IS_ERROR_CODE(eErr) || (AL_IS_WARNING_CODE(eErr) && Config.eExitCondition == DEC_WARNING))
-    throw codec_error(eErr);
+  if(AL_IS_ERROR_CODE(eErr) || (AL_IS_WARNING_CODE(eErr) && Config.eExitCondition == DEC_WARNING)){
+   // throw codec_error(eErr);
+   if(!Config.bDeviceisPresent){
+     failed_devices[i] = 1;
+
+     // If the initially chosen best device fails, choose the next lowest resource device as the new best device.
+     if(i == lowest_index) {
+       lowest_index = (lowest_index +1) % nIPDevices;
+
+       failed_lowest_resources = 0;
+       AL_IDecScheduler_Get((AL_IDecScheduler const*)pScheduler[i], AL_ISCHEDULER_CORE, &coreInfo[i]);
+       for(int j = 0; j < AL_DEC_NUM_CORES; j++){
+                failed_lowest_resources += coreInfo[i].iVideoResource[j];
+       }
+       lowest_resources = MAX_RESOURCE; //Reset lowest resources
+     }
+
+     if(bAllDevicesFailed == true){
+        cout << "All devices failed";
+        for(int i = 0; i <nIPDevices; i++){
+         cout << " - DeviceIP" << i;
+        }
+        cout << " have unavailable resources" << endl;
+        throw codec_error(eErr);
+     }
+     else{
+       cout << endl << "Unavailable Resource on DeviceIP" << i << endl;
+       cout << "Checking with the next available DeviceIP" << lowest_index << endl;
+       goto findDecDev;
+     }
+   }else{
+     throw codec_error(eErr);
+   }
+  }
 
   if(!tDecodeParam.decodedFrames)
     throw runtime_error("No frame decoded");
@@ -1761,12 +1877,14 @@ void SafeMain(int argc, char** argv)
   param.iHangers = Config.hangers;
   param.ipCtrlMode = Config.ipCtrlMode;
   param.apbFile = Config.apbFile;
+  param.bDeviceisPresent = Config.bDeviceisPresent;
 
   std::shared_ptr<CIpDevice> pIpDevice = std::shared_ptr<CIpDevice>(new CIpDevice);
 
   if(!pIpDevice)
     throw runtime_error("Can't create IpDevice");
 
+  pIpDevice->CountIPDevices();
   pIpDevice->Configure(param);
 
   bool bUseBoard = (param.iDeviceType == AL_DEVICE_TYPE_BOARD); // retrieve auto-detected device type
