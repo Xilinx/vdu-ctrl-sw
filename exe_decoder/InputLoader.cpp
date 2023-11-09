@@ -1,25 +1,5 @@
-/******************************************************************************
-* Copyright (C) 2015-2023 Allegro DVT2
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in all
-* copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-*
-******************************************************************************/
+// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-License-Identifier: MIT
 
 #include "InputLoader.h"
 extern "C"
@@ -32,6 +12,7 @@ extern "C"
 }
 #include <algorithm>
 #include <memory>
+#include <cassert>
 #include <stdexcept>
 
 using namespace std;
@@ -405,7 +386,7 @@ uint32_t SplitInput::ReadStream(istream& ifFileStream, AL_TBuffer* pBufStream, u
 {
   uBufFlags = AL_STREAM_BUF_FLAG_UNKNOWN;
 
-  size_t iNalAudSize = 0;
+  int iNalAudSize = 0;
   uint8_t const* pAUD = NULL;
   uint8_t const AVC_AUD[] = { 0, 0, 1, 0x09, 0x80 };
 
@@ -432,14 +413,25 @@ uint32_t SplitInput::ReadStream(istream& ifFileStream, AL_TBuffer* pBufStream, u
     if(!m_bEOF)
     {
       auto start = (m_CircBuf.iOffset + m_CircBuf.iAvailSize) % m_CircBuf.tBuf.iSize;
-      auto freeArea = m_CircBuf.tBuf.iSize - m_CircBuf.iAvailSize;
+      auto readable = m_CircBuf.tBuf.iSize - m_CircBuf.iAvailSize;
+      auto size = 0;
 
-      auto readable = min(freeArea, m_CircBuf.tBuf.iSize - start);
-      ifFileStream.read((char*)(m_CircBuf.tBuf.pBuf + start), readable);
-      auto size = (uint32_t)ifFileStream.gcount();
+      if(start + readable > m_CircBuf.tBuf.iSize)
+      {
+        ifFileStream.read((char*)(m_CircBuf.tBuf.pBuf + start), m_CircBuf.tBuf.iSize - start);
+        size += ifFileStream.gcount();
+        ifFileStream.read((char*)(m_CircBuf.tBuf.pBuf), readable - size);
+        size += ifFileStream.gcount();
+      }
+      else
+      {
+        ifFileStream.read((char*)(m_CircBuf.tBuf.pBuf + start), readable);
+        size += ifFileStream.gcount();
+      }
+
       m_CircBuf.iAvailSize += size;
 
-      if(size == 0)
+      if(size < readable && iNalAudSize <= readable - size)
       {
         m_bEOF = true;
 
@@ -448,7 +440,16 @@ uint32_t SplitInput::ReadStream(istream& ifFileStream, AL_TBuffer* pBufStream, u
           if(pAUD == nullptr)
             throw runtime_error("pAUD cannot be NULL!");
 
-          Rtos_Memcpy(m_CircBuf.tBuf.pBuf + start, pAUD, iNalAudSize);
+          start = (m_CircBuf.iOffset + m_CircBuf.iAvailSize) % m_CircBuf.tBuf.iSize;
+
+          if(start + iNalAudSize > m_CircBuf.tBuf.iSize)
+          {
+            Rtos_Memcpy(m_CircBuf.tBuf.pBuf + start, pAUD, m_CircBuf.tBuf.iSize - start);
+            Rtos_Memcpy(m_CircBuf.tBuf.pBuf, pAUD + m_CircBuf.tBuf.iSize - start, iNalAudSize - m_CircBuf.tBuf.iSize + start);
+          }
+          else
+            Rtos_Memcpy(m_CircBuf.tBuf.pBuf + start, pAUD, iNalAudSize);
+
           m_CircBuf.iAvailSize += iNalAudSize;
         }
       }
@@ -490,3 +491,39 @@ uint32_t SplitInput::ReadStream(istream& ifFileStream, AL_TBuffer* pBufStream, u
   return frame.numBytes;
 }
 
+/******************************************************************************/
+SplitInputFromSizes::SplitInputFromSizes(std::istream& ifFileSizes)
+  : m_FileSizes(ifFileSizes)
+{
+}
+
+/******************************************************************************/
+uint32_t SplitInputFromSizes::ReadStream(istream& ifFileStream, AL_TBuffer* pBufStream, uint8_t& uBufFlags)
+{
+  uBufFlags = AL_STREAM_BUF_FLAG_UNKNOWN;
+
+  if(m_bEOF)
+    return 0;
+
+  string sFrmSize;
+  getline(m_FileSizes, sFrmSize);
+
+  int iFrmSize = atoi(sFrmSize.c_str());
+
+  if(iFrmSize)
+  {
+    assert(iFrmSize <= (int)AL_Buffer_GetSize(pBufStream));
+
+    uint8_t* pBufOut = AL_Buffer_GetData(pBufStream);
+
+    ifFileStream.read((char*)pBufOut, iFrmSize);
+
+    assert(ifFileStream.gcount() == iFrmSize);
+
+    uBufFlags = AL_STREAM_BUF_FLAG_ENDOFSLICE | AL_STREAM_BUF_FLAG_ENDOFFRAME;
+  }
+  else
+    m_bEOF = true;
+
+  return iFrmSize;
+}

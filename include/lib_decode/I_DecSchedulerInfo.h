@@ -1,53 +1,52 @@
-/******************************************************************************
-* Copyright (C) 2015-2023 Allegro DVT2
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in all
-* copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-*
-******************************************************************************/
+// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-License-Identifier: MIT
 
 #pragma once
 
+#include "lib_rtos/types.h"
+
 /*************************************************************************//*!
-   \brief Core Information structure
+   \brief Core information structure
 *****************************************************************************/
 typedef struct
 {
-  int iCoreFrequency;
-  int iMaxVideoResourcePerCore;
-  int iVideoResource[AL_DEC_NUM_CORES];
-}AL_TISchedulerCore;
+  int32_t iCoreFrequency;
+  int32_t iMaxVideoResourcePerCore;
+  int32_t iVideoResource[AL_DEC_NUM_CORES];
+}AL_TIDecSchedulerCore;
+
+/*************************************************************************//*!
+   \brief Version (SemVer) structure
+*****************************************************************************/
+typedef union
+{
+  struct
+  {
+    uint16_t uMajor; /*!< Major version */
+    uint16_t uMinor; /*!< Minor version */
+    uint32_t uPatch; /*!< Patch version */
+  }version;
+  AL_64U uVersion; /*!< Version */
+}AL_TIDecSchedulerVersion;
 
 /****************************************************************************/
 typedef enum
 {
-  AL_ISCHEDULER_CORE, /*!< reference: AL_TISchedulerCore */
-  AL_ISCHEDULER_CHANNEL_TRACE_CALLBACK, /*!< reference: AL_TIDecSchedulerChannelTraceCallback */
-  AL_ISCHEDULER_MAX_ENUM,
+  AL_IDECSCHEDULER_VERSION, /*!< reference: AL_TIDecSchedulerVersion */
+  AL_IDECSCHEDULER_CORE, /*!< reference: AL_TIDecSchedulerCore */
+  AL_IDECSCHEDULER_CHANNEL_TRACE_CALLBACK, /*!< reference: AL_TIDecSchedulerChannelTraceCallback */
+  AL_IDECSCHEDULER_MAX_ENUM,
 }AL_EIDecSchedulerInfo;
 
 static inline char const* ToStringIDecSchedulerInfo(AL_EIDecSchedulerInfo eInfo)
 {
   switch(eInfo)
   {
-  case AL_ISCHEDULER_CORE: return "AL_ISCHEDULER_CORE";
-  case AL_ISCHEDULER_CHANNEL_TRACE_CALLBACK: return "AL_ISCHEDULER_CHANNEL_TRACE_CALLBACK";
-  case AL_ISCHEDULER_MAX_ENUM: return "AL_ISCHEDULER_MAX_ENUM";
+  case AL_IDECSCHEDULER_CORE: return "AL_IDECSCHEDULER_CORE";
+  case AL_IDECSCHEDULER_CHANNEL_TRACE_CALLBACK: return "AL_IDECSCHEDULER_CHANNEL_TRACE_CALLBACK";
+  case AL_IDECSCHEDULER_VERSION: return "AL_IDECSCHEDULER_VERSION";
+  case AL_IDECSCHEDULER_MAX_ENUM: return "AL_IDECSCHEDULER_MAX_ENUM";
+
   default: return "Unknown info";
   }
 

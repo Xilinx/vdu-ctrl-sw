@@ -1,32 +1,15 @@
-/******************************************************************************
-* Copyright (C) 2015-2023 Allegro DVT2
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in all
-* copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-*
-******************************************************************************/
+// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-License-Identifier: MIT
+
+#include "IpDevice.h"
 
 #include <stdexcept>
 #include <memory>
+#include <set>
 
-#include "IpDevice.h"
 #include "lib_app/console.h"
 #include "lib_app/utils.h"
+#include "lib_common/Allocator.h"
 
 extern "C"
 {
@@ -45,8 +28,6 @@ AL_TAllocator* createDmaAllocator(const char* deviceName)
   return h;
 }
 
-std::string g_DecDevicePath = "/dev/allegroDecodeIP";
-
 extern "C"
 {
 #include "lib_decode/DecSchedulerMcu.h"
@@ -61,14 +42,14 @@ AL_TAllocator* CreateProxyAllocator(char const*)
 void CIpDevice::ConfigureMcu(AL_TDriver* driver, bool useProxy)
 {
   if(useProxy)
-    m_pAllocator = CreateProxyAllocator(g_DecDevicePath.c_str());
+    m_pAllocator = CreateProxyAllocator(this->m_tSelectedDevice.c_str());
   else
-    m_pAllocator = createDmaAllocator(g_DecDevicePath.c_str());
+    m_pAllocator = createDmaAllocator(this->m_tSelectedDevice.c_str());
 
   if(!m_pAllocator)
     throw runtime_error("Can't open DMA allocator");
 
-  m_pScheduler = AL_DecSchedulerMcu_Create(driver, g_DecDevicePath.c_str());
+  m_pScheduler = AL_DecSchedulerMcu_Create(driver, this->m_tSelectedDevice.c_str());
 
   if(!m_pScheduler)
     throw runtime_error("Failed to create MCU scheduler");
@@ -83,11 +64,48 @@ CIpDevice::~CIpDevice()
     AL_Allocator_Destroy(m_pAllocator);
 }
 
-void CIpDevice::Configure(CIpDeviceParam& param)
+static std::string SelectMcuDevice(std::set<std::string> const& tDevices)
 {
+  /* create schedulers */
+  std::string best_device;
+  int highest_resources = -1;
+
+  for(auto const& device : tDevices)
+  {
+    AL_IDecScheduler* scheduler = AL_DecSchedulerMcu_Create(AL_GetHardwareDriver(), device.c_str());
+
+    if(scheduler == nullptr)
+      throw runtime_error(string("Can't create MCU Scheduler: ") + device);
+
+    int total_resources = 0;
+    AL_TIDecSchedulerCore tCore;
+    AL_IDecScheduler_Get(scheduler, AL_IDECSCHEDULER_CORE, &tCore);
+
+    for(int iCore = 0; iCore < AL_DEC_NUM_CORES; iCore++)
+      total_resources += tCore.iVideoResource[iCore];
+
+    if(total_resources >= highest_resources)
+    {
+      highest_resources = total_resources;
+      best_device = device;
+    }
+    AL_IDecScheduler_Destroy(scheduler);
+  }
+
+  if(best_device.empty())
+    throw runtime_error("Something wrong happened!");
+
+  return best_device;
+}
+
+CIpDevice::CIpDevice(CIpDeviceParam const& param, AL_EDeviceType eDeviceType, std::set<std::string> tDevices) :
+  m_tDevices(tDevices)
+{
+  this->m_eDeviceType = eDeviceType;
 
   if(param.iSchedulerType == AL_SCHEDULER_TYPE_MCU)
   {
+    this->m_tSelectedDevice = SelectMcuDevice(m_tDevices);
     ConfigureMcu(AL_GetHardwareDriver(), false);
     return;
   }
@@ -95,3 +113,7 @@ void CIpDevice::Configure(CIpDeviceParam& param)
   throw runtime_error("No support for this scheduling type");
 }
 
+AL_EDeviceType CIpDevice::GetDeviceType()
+{
+  return this->m_eDeviceType;
+}

@@ -1,25 +1,5 @@
-/******************************************************************************
-* Copyright (C) 2015-2023 Allegro DVT2
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in all
-* copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-*
-******************************************************************************/
+// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-License-Identifier: MIT
 
 #include "lib_common/Error.h"
 
@@ -39,8 +19,10 @@ const char* AL_Codec_ErrorToString(AL_ERR eErrorCode)
   case AL_ERR_REQUEST_MALFORMED: return "Channel creation failed, request was malformed";
   case AL_ERR_CMD_NOT_ALLOWED: return "Command is not allowed";
   case AL_ERR_CHAN_CREATION_MIX_REALTIME: return "Cannot mix realtime and non-realtime channel";
+  case AL_ERR_CANNOT_OPEN_FILE: return "Cannot Open file";
+  case AL_ERR_ROI_DISABLE: return "Regions Of Interest (ROI) are disabled";
   case AL_ERR_QPLOAD_DATA: return "Error in QP file data.";
-  case AL_ERR_QPLOAD_NOT_ENOUGH_DATA: return "Not enough datas in the provided QP table.";
+  case AL_ERR_QPLOAD_NOT_ENOUGH_DATA: return "Not enough data in the provided QP table.";
   case AL_ERR_QPLOAD_SEGMENT_CONFIG: return "Some segments are configured with an invalid QP in the provided QP table.";
   case AL_ERR_QPLOAD_QP_VALUE: return "Invalid QPs configured in the provided QP table.";
   case AL_ERR_QPLOAD_SEGMENT_INDEX: return "Invalid segment indexes found in the provided QP table.";
@@ -65,6 +47,8 @@ const char* AL_Codec_ErrorToString(AL_ERR eErrorCode)
   case AL_WARN_SPS_INTERLACE_NOT_COMPATIBLE_WITH_CHANNEL_SETTINGS: return "Sps sequence mode (progressive/interlaced) mode not compatible with channel settings, decoder discarded it";
   case AL_WARN_SPS_MIN_RESOLUTION_NOT_COMPATIBLE_WITH_CHANNEL_SETTINGS: return "Sps resolution not compatible with minimal resolution, decoder discarded it";
   case AL_WARN_SPS_RESOLUTION_NOT_COMPATIBLE_WITH_CHANNEL_SETTINGS: return "Sps resolution not compatible with channel settings, decoder discarded it";
+  case AL_WARN_ASO_FMO_NOT_SUPPORTED: return "Arbitrary Slice Order (ASO) or Flexible Macroblock Reordering (FMO) features are not supported, decoder discarded it";
+  case AL_WARN_INVALID_ACCESS_UNIT_STRUCTURE: return "The NALs present in the stream buffer don't form a valid Access Unit structure";
 
   /* Others */
   case AL_SUCCESS: return "Success";

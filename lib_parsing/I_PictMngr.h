@@ -1,25 +1,5 @@
-/******************************************************************************
-* Copyright (C) 2015-2023 Allegro DVT2
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in all
-* copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-*
-******************************************************************************/
+// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-License-Identifier: MIT
 
 /****************************************************************************
    -----------------------------------------------------------------------------
@@ -55,7 +35,7 @@ typedef struct
   int iNext;
   int iAccessCnt;
   bool bStartsNewCVS;
-  bool bWillBeOutputed;
+  bool bWillBeOutputted;
   bool bOutEarly;
   uint32_t uCRC;
   AL_TCropInfo tCrop;
@@ -98,7 +78,7 @@ typedef struct t_MvBufPool
 /*************************************************************************//*!
    \brief Reference Picture List Context
 *****************************************************************************/
-/* reference picture list contruction variables */
+/* reference picture list construction variables */
 typedef struct AL_t_HevcRefPicCtx
 {
   int PocStCurrBefore[MAX_DPB_SIZE];
@@ -164,7 +144,7 @@ typedef struct AL_t_PictMngrParam
   int iNumDPBRef; /*!< Number of reference to manage */
   AL_EDpbMode eDPBMode; /*!< Mode of the DPB */
   AL_EFbStorageMode eFbStorageMode; /*!< Frame buffer storage mode */
-  int iBitdepth; /*!< Bitdepth of the outputed frame */
+  int iBitdepth; /*!< Bitdepth of the outputted frame */
 
   int iNumMV;  /*!< Number of motion-vector buffer to manage */
   int iSizeMV; /*!< Size of motion-vector buffer managed */
@@ -323,6 +303,20 @@ AL_TBuffer* AL_PictMngr_ForceDisplayBuffer(AL_TPictMngrCtx* pCtx, AL_TInfoDecode
 bool AL_PictMngr_PutDisplayBuffer(AL_TPictMngrCtx* pCtx, AL_TBuffer* pBuf);
 
 /*************************************************************************//*!
+   \brief This function returns the Minimum frame buffer size
+   \param[in] pCtx   Pointer to a Picture manager context object
+   \return int framebuffer size
+*****************************************************************************/
+int AL_PictMngr_GetMinBufferSize(AL_TPictMngrCtx const* pCtx);
+
+/*************************************************************************//*!
+   \brief This function returns the Minimum frame buffer dimensions
+   \param[in] pCtx   Pointer to a Picture manager context object
+   \return AL_TDimension Actual framebuffer pitch and Height
+*****************************************************************************/
+AL_TDimension AL_PictMngr_GetMinBufferDim(AL_TPictMngrCtx const* pCtx, AL_EFbStorageMode eDisplayStorageMode);
+
+/*************************************************************************//*!
    \brief This function returns the display picture buffer associated to iFrameID
    \param[in]  pCtx      Pointer to a Picture manager context object
    \param[in]  iFrameID  Frame ID
@@ -337,15 +331,6 @@ AL_TBuffer* AL_PictMngr_GetDisplayBufferFromID(AL_TPictMngrCtx const* pCtx, int 
    \return Picture buffer's pointer
 *****************************************************************************/
 AL_TBuffer* AL_PictMngr_GetRecBufferFromID(AL_TPictMngrCtx const* pCtx, int iFrameID);
-
-/*************************************************************************//*!
-   \brief This function returns the reconstructed picture buffer associated to a displayed buffer
-   \param[in]  pCtx      Pointer to a Picture manager context object
-   \param[in]  pDisplayBuf  Display buffer pointer
-   \param[out] pInfo     Pointer to retrieve information about the decoded frame
-   \return Reconstructed picture buffer's pointer
-*****************************************************************************/
-AL_TBuffer* AL_PictMngr_GetRecBufferFromDisplayBuffer(AL_TPictMngrCtx const* pCtx, AL_TBuffer const* pDisplayBuf, AL_TInfoDecode* pInfo);
 
 /*************************************************************************//*!
    \brief This function returns the encoding error status associated to a display or rec buffer

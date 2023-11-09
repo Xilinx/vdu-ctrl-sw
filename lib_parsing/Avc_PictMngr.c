@@ -1,25 +1,5 @@
-/******************************************************************************
-* Copyright (C) 2015-2023 Allegro DVT2
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in all
-* copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-*
-******************************************************************************/
+// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-License-Identifier: MIT
 
 /****************************************************************************
    -----------------------------------------------------------------------------
@@ -78,7 +58,7 @@ static void AL_sGetPocType0(AL_TPictMngrCtx* pCtx, AL_TAvcSliceHdr const* pSlice
 /*****************************************************************************/
 static void AL_sGetPocType1(AL_TPictMngrCtx* pCtx, AL_TAvcSliceHdr const* pSlice)
 {
-  int iExpectedDeltaPerPicOrderCntCycle = 0;
+  int64_t iExpectedDeltaPerPicOrderCntCycle = 0;
   bool bIsIDR = AL_AVC_IsIDR(pSlice->nal_unit_type);
 
   for(int i = 0; i < pSlice->pSPS->num_ref_frames_in_pic_order_cnt_cycle; ++i)
@@ -93,7 +73,7 @@ static void AL_sGetPocType1(AL_TPictMngrCtx* pCtx, AL_TAvcSliceHdr const* pSlice
     }
   }
 
-  int iFrameNumOffset;
+  int64_t iFrameNumOffset;
   uint32_t uMaxFrameNum = 1 << (pSlice->pSPS->log2_max_frame_num_minus4 + 4);
 
   if(bIsIDR)
@@ -373,7 +353,7 @@ void AL_AVC_PictMngr_ReorderPictList(AL_TPictMngrCtx const* pCtx, AL_TAvcSliceHd
     uint8_t uParseShort = 0;
     uint8_t uParseLong = 0;
 
-    while(pSlice->reordering_of_pic_nums_idc_l0[uParse] != 3)
+    while(uParse < AL_MAX_REFERENCE_PICTURE_REORDER && pSlice->reordering_of_pic_nums_idc_l0[uParse] != 3)
     {
       int iPicNumIdc = pSlice->reordering_of_pic_nums_idc_l0[uParse++];
       switch(iPicNumIdc)
@@ -400,7 +380,7 @@ void AL_AVC_PictMngr_ReorderPictList(AL_TPictMngrCtx const* pCtx, AL_TAvcSliceHd
 
     iPicNumPred = pSlice->frame_num * (1 + pSlice->field_pic_flag) + pSlice->field_pic_flag;
 
-    while(pSlice->reordering_of_pic_nums_idc_l1[uParse] != 3)
+    while(uParse < AL_MAX_REFERENCE_PICTURE_REORDER && pSlice->reordering_of_pic_nums_idc_l1[uParse] != 3)
     {
       int iPicNumIdc = pSlice->reordering_of_pic_nums_idc_l1[uParse++];
       switch(iPicNumIdc)

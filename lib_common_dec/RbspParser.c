@@ -1,25 +1,5 @@
-/******************************************************************************
-* Copyright (C) 2015-2023 Allegro DVT2
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in all
-* copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-*
-******************************************************************************/
+// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-License-Identifier: MIT
 
 /****************************************************************************
    -----------------------------------------------------------------------------
@@ -50,7 +30,7 @@ static const uint8_t tab_log2[256] =
 
 /*************************************************************************//*!
    \brief The log2 function computes the log2 mathematical operation on value
-   \param[in] value the value on which the log2 mathematical opeartion will be done
+   \param[in] value the value on which the log2 mathematical operation will be done
    \return    return the value of log2(value)
 *****************************************************************************/
 static uint32_t al_log2(uint32_t value)
@@ -247,7 +227,7 @@ bool rbsp_trailing_bits(AL_TRbspParser* pRP)
   pRP->iTrailingBitOneIndex = pRP->iTrailingBitOneIndexConceal;
   uint8_t rbsp_stop_one_bit = u(pRP, 1);
 
-  if(!rbsp_stop_one_bit)
+  if(!rbsp_stop_one_bit || rbsp_stop_one_bit == UINT8_MAX)
     return false;
 
   while(!byte_aligned(pRP))
@@ -268,14 +248,11 @@ uint8_t getbyte(AL_TRbspParser* pRP)
 
   int byte_offset = (int)(pRP->iTotalBitIndex >> 3);
 
-  if(pRP->iTrailingBitOneIndex < pRP->iTotalBitIndex + 8)
+  if(pRP->iTrailingBitOneIndex < pRP->iTotalBitIndex + 8 && !fetch_data(pRP))
   {
-    if(!fetch_data(pRP))
-    {
-      pRP->iTotalBitIndex = pRP->iTrailingBitOneIndexConceal;
-      pRP->pByte = &(pRP->pBuffer[pRP->iTotalBitIndex >> 3]);
-      return 0;
-    }
+    pRP->iTotalBitIndex = pRP->iTrailingBitOneIndexConceal;
+    pRP->pByte = &(pRP->pBuffer[pRP->iTotalBitIndex >> 3]);
+    return 0;
   }
 
   AL_Assert(pRP->iTotalBitIndex <= pRP->iTrailingBitOneIndex);
@@ -293,9 +270,8 @@ uint8_t* get_raw_data(AL_TRbspParser* pRP)
 /*****************************************************************************/
 uint8_t get_next_bit(AL_TRbspParser* pRP)
 {
-  if(pRP->iTrailingBitOneIndex < pRP->iTotalBitIndex + 1)
-    if(!fetch_data(pRP))
-      return -1;
+  if(pRP->iTrailingBitOneIndex < pRP->iTotalBitIndex + 1 && !fetch_data(pRP))
+    return -1;
 
   int bit_offset = (int)(pRP->iTotalBitIndex & 0x07);
   uint8_t bit;
@@ -402,7 +378,7 @@ int32_t i(AL_TRbspParser* pRP, uint8_t iNumBits)
   int abs_val = val_u & mask;
 
   if(val_u & ~mask)
-    return -((((~val_u) & mask)) + 1);
+    return -(((~val_u) & mask) + 1);
 
   return abs_val;
 }

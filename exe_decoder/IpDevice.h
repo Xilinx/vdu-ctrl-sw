@@ -1,34 +1,15 @@
-/******************************************************************************
-* Copyright (C) 2015-2023 Allegro DVT2
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in all
-* copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-*
-******************************************************************************/
+// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-License-Identifier: MIT
 
 #pragma once
 #include <functional>
+#include <set>
 #include "lib_app/utils.h"
-#include "lib_common_dec/DecChanParam.h"
 
 extern "C"
 {
 #include "lib_decode/lib_decode.h"
+#include "lib_common_dec/DecChanParam.h"
 }
 
 typedef struct AL_t_Allocator AL_TAllocator;
@@ -40,7 +21,6 @@ typedef struct AL_t_driver AL_TDriver;
 /*****************************************************************************/
 struct CIpDeviceParam
 {
-  int iDeviceType;
   int iSchedulerType;
   bool bTrackDma = false;
   uint8_t uNumCore = 0;
@@ -53,11 +33,12 @@ struct CIpDeviceParam
 class CIpDevice
 {
 public:
-  CIpDevice() {};
+  CIpDevice(CIpDeviceParam const& param, AL_EDeviceType eDeviceType, std::set<std::string> tDevices);
   ~CIpDevice();
 
-  void Configure(CIpDeviceParam& param);
   AL_IDecScheduler* GetScheduler();
+  AL_EDeviceType GetDeviceType();
+
   AL_TAllocator* GetAllocator();
   AL_Timer* GetTimer();
 
@@ -65,6 +46,9 @@ public:
   CIpDevice & operator = (CIpDevice const &) = delete;
 
 private:
+  std::set<std::string> const m_tDevices;
+  std::string m_tSelectedDevice;
+  AL_EDeviceType m_eDeviceType;
   AL_IDecScheduler* m_pScheduler = nullptr;
   AL_TAllocator* m_pAllocator = nullptr;
   AL_Timer* m_pTimer = nullptr;

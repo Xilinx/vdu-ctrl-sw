@@ -1,25 +1,5 @@
-/******************************************************************************
-* Copyright (C) 2015-2023 Allegro DVT2
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in all
-* copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-*
-******************************************************************************/
+// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-License-Identifier: MIT
 
 /****************************************************************************
    -----------------------------------------------------------------------------
@@ -86,12 +66,6 @@ int AL_GetAllocSize_AvcMV(AL_TDimension tDim)
 }
 
 /****************************************************************************/
-static AL_EChromaOrder GetChromaOrder(AL_EChromaMode eChromaMode)
-{
-  return eChromaMode == AL_CHROMA_MONO ? AL_C_ORDER_NO_CHROMA : (eChromaMode == AL_CHROMA_4_4_4 ? AL_C_ORDER_U_V : AL_C_ORDER_SEMIPLANAR);
-}
-
-/****************************************************************************/
 static int GetChromaAllocSize(AL_EChromaMode eChromaMode, int iAllocSizeY)
 {
   switch(eChromaMode)
@@ -141,23 +115,23 @@ int AL_DecGetAllocSize_Frame_UV(AL_EFbStorageMode eFbStorage, AL_TDimension tDim
 }
 
 /****************************************************************************/
-uint32_t AL_GetRefListOffsets(TRefListOffsets* pOffsets, AL_ECodec eCodec, AL_EChromaOrder eChromaOrder, uint32_t uAddrSize)
+uint32_t AL_GetRefListOffsets(TRefListOffsets* pOffsets, AL_ECodec eCodec, AL_EChromaOrder eChromaOrder, uint8_t uAddrSizeInBytes)
 {
   AL_EPlaneId usedPlanes[AL_MAX_BUFFER_PLANES];
   const int iNbPixPlanes = Max(2, AL_Plane_GetBufferPixelPlanes(eChromaOrder, usedPlanes));
   TRefListOffsets tOffsets;
   (void)eCodec;
 
-  uint32_t uOffset = uAddrSize * MAX_REF * iNbPixPlanes; // size of RefList Buff Addrs
+  uint32_t uOffset = uAddrSizeInBytes * MAX_REF * iNbPixPlanes; // size of RefList Buff Addrs
 
   tOffsets.uColocPocOffset = uOffset;
-  uOffset += uAddrSize * MAX_REF; // size of coloc POCs Buff Addrs
+  uOffset += uAddrSizeInBytes * MAX_REF; // size of coloc POCs Buff Addrs
 
   tOffsets.uColocMVOffset = uOffset;
-  uOffset += uAddrSize * MAX_REF; // size of coloc MVs Buff Addrs
+  uOffset += uAddrSizeInBytes * MAX_REF; // size of coloc MVs Buff Addrs
 
   tOffsets.uMapOffset = uOffset;
-  uOffset += uAddrSize * MAX_REF * iNbPixPlanes;  // size of RefList Map Addr
+  uOffset += uAddrSizeInBytes * MAX_REF * iNbPixPlanes;  // size of RefList Map Addr
 
   if(pOffsets)
     *pOffsets = tOffsets;

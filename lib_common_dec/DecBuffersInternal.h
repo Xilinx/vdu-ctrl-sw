@@ -1,25 +1,5 @@
-/******************************************************************************
-* Copyright (C) 2015-2023 Allegro DVT2
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in all
-* copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-*
-******************************************************************************/
+// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-License-Identifier: MIT
 
 /****************************************************************************
    -----------------------------------------------------------------------------
@@ -74,7 +54,7 @@ static const int POCBUFF_SUBPIC_OFFSET = 68;  // Frame with subpicture flag List
 *****************************************************************************/
 typedef struct t_BufferRef
 {
-  AL_TBuffer RefBuf; // adress of the corresponding frame buffer
+  AL_TBuffer RefBuf; // address of the corresponding frame buffer
   uint8_t uNodeID;
 }TBufferRef, TBufferListRef[2][MAX_REF + 1];
 
@@ -142,10 +122,10 @@ int AL_GetAllocSize_Frame(AL_TDimension tDim, AL_EChromaMode eChromaMode, uint8_
    \param[out] pOffset the data offsets in the reference list buffer
    \param[in] eCodec Current codec
    \param[in] eChromaOrder Chroma order
-   \param[in] bVirt buffer with Virtual address. physical address otherwise
-   \return total size of the RefListBuffer
+   \param[in] uAddrSizeInBytes References list's buffer address size in bytes.
+   \return the total size of the RefListBuffer
 *****************************************************************************/
-uint32_t AL_GetRefListOffsets(TRefListOffsets* pOffsets, AL_ECodec eCodec, AL_EChromaOrder eChromaOrder, uint32_t uAddrSize);
+uint32_t AL_GetRefListOffsets(TRefListOffsets* pOffsets, AL_ECodec eCodec, AL_EChromaOrder eChromaOrder, uint8_t uAddrSizeInBytes);
 
 int32_t RndPitch(int32_t iWidth, uint8_t uBitDepth, AL_EFbStorageMode eFrameBufferStorageMode);
 int32_t RndHeight(int32_t iHeight);

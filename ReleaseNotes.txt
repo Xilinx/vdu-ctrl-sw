@@ -66,3 +66,27 @@
     -- Licensing
     -- Tons of typos
     -- Several minors bugs
+
+  API:
+    -- Rename NonCompFrameReader.h into UnCompFrameReader.h
+
+2023-07-24 (v1.0.75)
+--------------------
+  Added Features:
+    -- lib_app BufPool improvement
+    -- Firmware Setter/Getter
+    -- Version checking between low-level ctrlsw and high-level ctrlsw
+    -- New warnings
+
+  API:
+    -- Version of the API is now 0.38.0
+    -- New warnings:
+      - AL_WARN_INVALID_ACCESS_UNIT_STRUCTURE
+      - AL_WARN_HW_CONCEAL_DETECT
+
+  Fixes:
+    -- Namespace naming issue
+    -- Tons of typos
+    -- Decoder:
+      - Error concealement
+    -- Several minors bugs

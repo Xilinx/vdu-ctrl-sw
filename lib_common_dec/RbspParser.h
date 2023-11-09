@@ -1,25 +1,5 @@
-/******************************************************************************
-* Copyright (C) 2015-2023 Allegro DVT2
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in all
-* copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-*
-******************************************************************************/
+// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-License-Identifier: MIT
 
 /****************************************************************************
    -----------------------------------------------------------------------------
@@ -58,7 +38,7 @@ typedef struct t_RbspParser
 }AL_TRbspParser;
 
 /*************************************************************************//*!
-   \brief The InitRbspParser function intializes a Rbsp Parser structure
+   \brief The InitRbspParser function initializes a Rbsp Parser structure
    \param[in]  pStream       Pointer to the circular stream buffer
    \param[in]  pNoAEBuffer   Pointer to the buffer with the no antiemulated bits of the NAL unit
    \param[in]  iNoAESize     Size of the no anti emulated buffer
@@ -87,7 +67,7 @@ bool byte_aligned(AL_TRbspParser* pRP);
    \brief The simple_byte_alignment function set the current bitstream offset to
    the next byte boundary, checking all bits are set to a specified value
    \param[in] pRP Pointer to NAL parser
-   \param[in] expected_bit Expected value for the aligment bits
+   \param[in] expected_bit Expected value for the alignment bits
    \return return true if the bit value conditions are met
    false otherwise
 *****************************************************************************/

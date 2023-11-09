@@ -1,25 +1,5 @@
-/******************************************************************************
-* Copyright (C) 2015-2023 Allegro DVT2
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in all
-* copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-*
-******************************************************************************/
+// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-License-Identifier: MIT
 
 /****************************************************************************
    -----------------------------------------------------------------------------
@@ -708,6 +688,11 @@ void AL_Dpb_SetNumRef(AL_TDpb* pDpb, uint8_t uMaxRef)
 /*************************************************************************/
 void AL_Dpb_SetMarkingFlag(AL_TDpb* pDpb, uint8_t uNode, AL_EMarkingRef eMarkingFlag)
 {
+  if(pDpb->Nodes[uNode].eMarking_flag != UNUSED_FOR_REF && eMarkingFlag == UNUSED_FOR_REF)
+    --pDpb->uCountRef;
+  else if(pDpb->Nodes[uNode].eMarking_flag == UNUSED_FOR_REF && eMarkingFlag != UNUSED_FOR_REF)
+    ++pDpb->uCountRef;
+
   pDpb->Nodes[uNode].eMarking_flag = eMarkingFlag;
 }
 
@@ -775,12 +760,19 @@ uint8_t AL_Dpb_GetNextFreeNode(AL_TDpb const* pDpb)
 
   Rtos_GetMutex(pDpb->Mutex);
 
-  while((pDpb->Nodes[uNew].eMarking_flag != UNUSED_FOR_REF) || (pDpb->Nodes[uNew].pic_output_flag))
-    uNew = (uNew + 1) % MAX_DPB_SIZE;
+  while(uNew < MAX_DPB_SIZE)
+  {
+    if((pDpb->Nodes[uNew].eMarking_flag == UNUSED_FOR_REF) && !pDpb->Nodes[uNew].pic_output_flag)
+    {
+      Rtos_ReleaseMutex(pDpb->Mutex);
+      return uNew;
+    }
+    ++uNew;
+  }
 
   Rtos_ReleaseMutex(pDpb->Mutex);
 
-  return uNew;
+  return uEndOfList;
 }
 
 /*****************************************************************************/
@@ -795,6 +787,10 @@ void AL_Dpb_FillList(AL_TDpb const* pDpb, uint8_t uL0L1, TBufferListRef const* p
     if(uNodeID != uEndOfList && !pDpb->Nodes[uNodeID].non_existing)
     {
       uint8_t uPicID = pDpb->Nodes[uNodeID].uPicID;
+
+      if(uPicID == uEndOfList || uPicID >= MAX_REF)
+        continue;
+
       pPocList[uPicID] = pDpb->Nodes[uNodeID].iFramePOC;
 
       if(pDpb->Nodes[uNodeID].eMarking_flag == LONG_TERM_REF)
@@ -1158,7 +1154,7 @@ void AL_Dpb_Insert(AL_TDpb* pDpb, int iFramePOC, AL_EPicStruct ePicStruct, uint3
   pDpb->uCurRef = uNode;
   AL_TDpbNode* pNode = &pDpb->Nodes[uNode];
 
-  // Assign frame buffer informations
+  // Assign frame buffer information
   pNode->iFramePOC = iFramePOC;
   pNode->ePicStruct = ePicStruct;
   pNode->slice_pic_order_cnt_lsb = uPocLsb;

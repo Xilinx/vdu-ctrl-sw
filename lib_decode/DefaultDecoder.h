@@ -1,25 +1,5 @@
-/******************************************************************************
-* Copyright (C) 2015-2023 Allegro DVT2
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in all
-* copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-*
-******************************************************************************/
+// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-License-Identifier: MIT
 
 /****************************************************************************
    -----------------------------------------------------------------------------
@@ -80,7 +60,7 @@ void AL_Default_Decoder_ReleaseStreamBuffer(void* pUserParam, AL_TBuffer* pBufSt
    \brief This function allocate memory blocks usable by the decoder
    \param[in]  pCtx decoder context
    \param[out] pMD  Pointer to TMemDesc structure that receives allocated
-                  memory informations
+                  memory information
    \param[in] uSize Number of bytes to allocate
    \param[in] name name of the buffer for debug purpose
    \return If the function succeeds the return value is nonzero (true)
@@ -118,7 +98,7 @@ bool AL_Default_Decoder_AllocMv(AL_TDecCtx* pCtx, int iMVSize, int iPOCSize, int
    \brief This function sets an error
    \param[in] pCtx decoder context
    \param[in] eError Error to set
-   \param[in] iFrameID Id of the erronous frame, -1 if error is not frame-related
+   \param[in] iFrameID Id of the erroneous frame, -1 if error is not frame-related
    \param[in] bTriggerCB Specifies if we must trigger the error CB
 *****************************************************************************/
 void AL_Default_Decoder_SetError(AL_TDecCtx* pCtx, AL_ERR eError, int iFrameID, bool bTriggerCB);
@@ -130,7 +110,7 @@ void AL_Default_Decoder_SetError(AL_TDecCtx* pCtx, AL_ERR eError, int iFrameID, 
    \param[out] pEnableCompression indicates if FBC in enabled for output frames
    \return the output storage mode
 *****************************************************************************/
-AL_EFbStorageMode AL_Default_Decoder_GetDisplayStorageMode(AL_TDecCtx* pCtx, int iBitDepth, bool* pEnableCompression);
+AL_EFbStorageMode AL_Default_Decoder_GetDisplayStorageMode(AL_TDecCtx const* pCtx, int iBitDepth, bool* pEnableCompression);
 
 /*************************************************************************//*!
    \brief This function indicates if there has an ongoing frame

@@ -1,25 +1,5 @@
-/******************************************************************************
-* Copyright (C) 2015-2023 Allegro DVT2
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in all
-* copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-*
-******************************************************************************/
+// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-License-Identifier: MIT
 
 #include "Avc_SliceHeaderParsing.h"
 
@@ -78,7 +58,7 @@ static void AL_AVC_sReadWPCoeff(AL_TRbspParser* pRP, AL_TAvcSliceHdr* pSlice, ui
 }
 
 /*****************************************************************************/
-static void AL_AVC_spred_weight_table(AL_TRbspParser* pRP, AL_TAvcSliceHdr* pSlice)
+static void AL_AVC_spread_weight_table(AL_TRbspParser* pRP, AL_TAvcSliceHdr* pSlice)
 {
   pSlice->pred_weight_table.luma_log2_weight_denom = Clip3(ue(pRP), 0, AL_MAX_WP_DENOM);
 
@@ -127,7 +107,7 @@ static bool AL_AVC_sref_pic_list_reordering(AL_TRbspParser* pRP, AL_TAvcSliceHdr
           pSlice->long_term_pic_num_l0[idx3] = ue(pRP);
         }
       }
-      while(idx1 < AL_MAX_REFERENCE_PICTURE_REORDER && pSlice->reordering_of_pic_nums_idc_l0[idx1] != 3);
+      while(idx1 + 1 < AL_MAX_REFERENCE_PICTURE_REORDER && pSlice->reordering_of_pic_nums_idc_l0[idx1] != 3);
 
       if(pSlice->reordering_of_pic_nums_idc_l0[idx1] != 3)
         return false;
@@ -161,7 +141,7 @@ static bool AL_AVC_sref_pic_list_reordering(AL_TRbspParser* pRP, AL_TAvcSliceHdr
           pSlice->long_term_pic_num_l1[idx3] = ue(pRP);
         }
       }
-      while(idx1 < AL_MAX_REFERENCE_PICTURE_REORDER && pSlice->reordering_of_pic_nums_idc_l1[idx1] != 3);
+      while(idx1 + 1 < AL_MAX_REFERENCE_PICTURE_REORDER && pSlice->reordering_of_pic_nums_idc_l1[idx1] != 3);
 
       if(pSlice->reordering_of_pic_nums_idc_l1[idx1] != 3)
         return false;
@@ -267,11 +247,11 @@ AL_ERR AL_AVC_ParseSliceHeader(AL_TAvcSliceHdr* pSlice, AL_TRbspParser* pRP, AL_
   pSlice->first_mb_in_slice = ue(pRP);
   pSlice->slice_type = ue(pRP);
 
-  int const currentPPSId = ue(pRP);
+  uint32_t const currentPPSId = ue(pRP);
 
   AL_TAvcPps const* pFallbackPps = &pPPSTable[pConceal->iLastPPSId];
 
-  if(currentPPSId > AL_AVC_MAX_PPS || pPPSTable[currentPPSId].bConceal)
+  if(currentPPSId >= AL_AVC_MAX_PPS || pPPSTable[currentPPSId].bConceal)
   {
     ApplyAvcSPS(pSlice, pFallbackPps);
     return AL_WARN_CONCEAL_DETECT;
@@ -442,7 +422,7 @@ AL_ERR AL_AVC_ParseSliceHeader(AL_TAvcSliceHdr* pSlice, AL_TRbspParser* pRP, AL_
       return AL_WARN_CONCEAL_DETECT;
     }
 
-    AL_AVC_spred_weight_table(pRP, pSlice);
+    AL_AVC_spread_weight_table(pRP, pSlice);
   }
 
   if(pSlice->nal_ref_idc != 0)
@@ -479,7 +459,6 @@ AL_ERR AL_AVC_ParseSliceHeader(AL_TAvcSliceHdr* pSlice, AL_TRbspParser* pRP, AL_
     return AL_WARN_ASO_FMO_NOT_SUPPORTED;
   }
 
-  pConceal->iFirstLCU = pSlice->first_mb_in_slice;
   return AL_SUCCESS;
 }
 

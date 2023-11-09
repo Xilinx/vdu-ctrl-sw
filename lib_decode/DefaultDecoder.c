@@ -1,25 +1,5 @@
-/******************************************************************************
-* Copyright (C) 2015-2023 Allegro DVT2
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in all
-* copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-*
-******************************************************************************/
+// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-License-Identifier: MIT
 
 /****************************************************************************
    -----------------------------------------------------------------------------
@@ -33,6 +13,7 @@
 
 #include "DefaultDecoder.h"
 #include "NalUnitParser.h"
+#include "lib_decode/InternalError.h"
 #include "NalUnitParserPrivate.h"
 #include "UnsplitBufferFeeder.h"
 #include "SplitBufferFeeder.h"
@@ -44,9 +25,9 @@
 #include "lib_common/BufferStreamMeta.h"
 #include "lib_common/BufferHandleMeta.h"
 #include "lib_common/BufferAPIInternal.h"
-#include "lib_common/HardwareConfig.h"
 #include "lib_common/SEI.h"
 #include "lib_common_dec/IpDecFourCC.h"
+#include "lib_common_dec/DecHardwareConfig.h"
 
 #include "lib_common/AvcLevelsLimit.h"
 #include "lib_common/AvcUtils.h"
@@ -57,6 +38,7 @@
 #include "lib_decode/I_DecScheduler.h"
 #include "lib_common/CodecHook.h"
 #include "lib_common_dec/HDRMeta.h"
+#include "lib_common_dec/StreamSettingsInternal.h"
 
 #include "lib_assert/al_assert.h"
 
@@ -129,7 +111,7 @@ static int GetCircularBufferSize(AL_ECodec eCodec, int iStack, AL_TStreamSetting
   {
     /* Circular buffer always should be able to hold one frame, therefore compute the worst case and use it as a lower bound.  */
     int const zMaxNalSize = AL_GetMaxNalSize(pStreamSettings->tDim, pStreamSettings->eChroma, pStreamSettings->iBitDepth, pStreamSettings->eProfile, pStreamSettings->iLevel); /* Worst case: (5/3)*PCM + Worst case slice Headers */
-    int const zRealworstcaseNalSize = AL_GetMitigatedMaxNalSize(pStreamSettings->tDim, pStreamSettings->eChroma, pStreamSettings->iBitDepth); /* Reasonnable: PCM + Slice Headers */
+    int const zRealworstcaseNalSize = AL_GetMitigatedMaxNalSize(pStreamSettings->tDim, pStreamSettings->eChroma, pStreamSettings->iBitDepth); /* Reasonable: PCM + Slice Headers */
     circularBufferSize = UnsignedMax(zMaxNalSize, iStack * zRealworstcaseNalSize);
   }
   else
@@ -402,6 +384,9 @@ void AL_Default_Decoder_EndDecoding(void* pUserParam, AL_TDecPicStatus const* pS
     Rtos_Log(AL_LOG_CRITICAL, "\n***** /!\\ Timeout - resetting the decoder /!\\ *****\n");
 
   Rtos_ReleaseMutex(pCtx->DecMutex);
+
+  if(pStatus->bConcealed || pStatus->uNumConcealedLCU > 0)
+    AL_Default_Decoder_SetError(pCtx, AL_WARN_HW_CONCEAL_DETECT, iFrameID, true);
 
   AL_Feeder_Signal(pCtx->Feeder);
   AL_sDecoder_CallBacks(pCtx, iFrameID);
@@ -899,6 +884,14 @@ bool AL_DecodeOneNal(AL_TAup* pAUP, AL_TDecCtx* pCtx, AL_ENut nut, bool bIsLastA
   {
     AL_TRbspParser rp = getParserOnNonVclNalInternalBuf(pCtx);
     AL_PARSE_RESULT eParserResult = parser.parseSps(pAUP, &rp, pCtx);
+
+    if(eParserResult == AL_LAUNCHED_OK)
+    {
+      if(pCtx->eInputMode != AL_DEC_UNSPLIT_INPUT)
+        pCtx->tConceal.bSkipRemainingNals = true;
+
+      return true;
+    }
     CheckNALParserResult(pCtx, eParserResult);
   }
 
@@ -906,6 +899,15 @@ bool AL_DecodeOneNal(AL_TAup* pAUP, AL_TDecCtx* pCtx, AL_ENut nut, bool bIsLastA
   {
     AL_TRbspParser rp = getParserOnNonVclNalInternalBuf(pCtx);
     AL_PARSE_RESULT eParserResult = parser.parsePps(pAUP, &rp, pCtx);
+
+    if(eParserResult == AL_LAUNCHED_OK)
+    {
+      if(pCtx->eInputMode != AL_DEC_UNSPLIT_INPUT)
+        pCtx->tConceal.bSkipRemainingNals = true;
+
+      return true;
+    }
+
     CheckNALParserResult(pCtx, eParserResult);
   }
 
@@ -933,7 +935,14 @@ bool AL_DecodeOneNal(AL_TAup* pAUP, AL_TDecCtx* pCtx, AL_ENut nut, bool bIsLastA
   if((nut == nuts.eos) || (nut == nuts.eob))
   {
     if(pCtx->bFirstIsValid && pCtx->bFirstSliceInFrameIsValid)
+    {
       parser.finishPendingRequest(pCtx);
+      pCtx->bIsFirstPicture = true;
+
+      if(pCtx->eInputMode != AL_DEC_UNSPLIT_INPUT)
+        pCtx->tConceal.bSkipRemainingNals = true;
+      return true;
+    }
     pCtx->bIsFirstPicture = true;
   }
 
@@ -1172,16 +1181,22 @@ static void ResetValidFlags(AL_TDecCtx* pCtx)
 }
 
 /*****************************************************************************/
-static void GetNextNal(AL_TDecCtx* pCtx, AL_TNal* nals, int iNalCount, int iLastVclNalInAU, int* iNal, AL_DecodeNalStep* step)
+static bool GetNextNal(AL_TDecCtx* pCtx, AL_TNal* nals, int iNalCount, int iLastVclNalInAU, int* iNal, AL_DecodeNalStep* step)
 {
   (void)nals;
   (void)iNalCount;
   (void)step;
 
+  if(pCtx->tConceal.bSkipRemainingNals)
+  {
+    *iNal = iNalCount;
+    return false;
+  }
+
   if((pCtx->eInputMode != AL_DEC_SPLIT_INPUT) || (iLastVclNalInAU == LAST_VCL_NAL_IN_AU_NOT_PRESENT))
   {
     (*iNal)++;
-    return;
+    return true;
   }
 
   AL_Assert(isITU(pCtx->pChanParam->eCodec) && "Unsupported codec");
@@ -1195,7 +1210,7 @@ static void GetNextNal(AL_TDecCtx* pCtx, AL_TNal* nals, int iNalCount, int iLast
       (*iNal)++;
 
       if(*iNal < iLastVclNalInAU)
-        return;
+        return true;
 
       (*step) = SEND_REORDERED_SUFFIX;
       continue;
@@ -1212,13 +1227,13 @@ static void GetNextNal(AL_TDecCtx* pCtx, AL_TNal* nals, int iNalCount, int iLast
         (*step) = SEND_LAST_VCL;
         continue;
       }
-      return;
+      return true;
     }
     case SEND_LAST_VCL:
     {
       AL_Assert(*iNal == iLastVclNalInAU);
       (*step) = SEND_REMAINING_NAL;
-      return;
+      return true;
     }
     case SEND_REMAINING_NAL:
     {
@@ -1232,19 +1247,22 @@ static void GetNextNal(AL_TDecCtx* pCtx, AL_TNal* nals, int iNalCount, int iLast
         AL_NonVclNuts nuts = pCtx->parser.getNonVclNuts();
         (void)nal;
         (void)nuts;
-        AL_Assert(nal == nuts.fd || nal == nuts.eos || nal == nuts.eob || nal == nuts.apsSuffix);
+
+        if(nal != nuts.fd && nal != nuts.eos && nal != nuts.eob && nal != nuts.apsSuffix)
+          return false;
       }
 
-      return;
+      return true;
     }
     default:
     {
       AL_Assert(0);
-      break;
+      return false;
     }
     }
   }
 
+  return false;
 }
 
 /*****************************************************************************/
@@ -1281,14 +1299,17 @@ static UNIT_ERROR DecodeOneUnit(AL_TDecCtx* pCtx, AL_TBuffer* pStream, int iNalC
 
   AL_Assert(iNalCount < MAX_NAL_UNIT);
   int iNal = -1;
-  AL_DecodeNalStep step = SEND_NAL_UNTIL_LAST_VCL;
+  AL_DecodeNalStep iStep = SEND_NAL_UNTIL_LAST_VCL;
 
   bool bIsNalProcessed = false;
 
   for(int iNalIdx = 0; iNalIdx < iNalCount; ++iNalIdx)
   {
-    GetNextNal(pCtx, nals, iNalCount, iLastVclNalInAU, &iNal, &step);
-    AL_Assert(iNal < iNalCount);
+    if(!GetNextNal(pCtx, nals, iNalCount, iLastVclNalInAU, &iNal, &iStep) || iNal >= iNalCount)
+    {
+      AL_Default_Decoder_SetError(pCtx, AL_WARN_INVALID_ACCESS_UNIT_STRUCTURE, -1, true);
+      return bIsNalProcessed ? SUCCESS_ACCESS_UNIT : ERR_INVALID_ACCESS_UNIT;
+    }
     AL_TNal CurrentNal = nals[iNal];
     AL_TStartCode CurrentStartCode = CurrentNal.tStartCode;
     AL_TStartCode NextStartCode;
@@ -1353,7 +1374,14 @@ UNIT_ERROR AL_Default_Decoder_TryDecodeOneUnit(AL_TDecoder* pAbsDec, AL_TBuffer*
     if(iNalCount == 0)
       return ERR_UNIT_NOT_FOUND;
 
-    return DecodeOneUnit(pCtx, pStream, iNalCount, iLastVclNalInAU);
+    UNIT_ERROR ret = DecodeOneUnit(pCtx, pStream, iNalCount, iLastVclNalInAU);
+
+    if(pCtx->eInputMode == AL_DEC_SPLIT_INPUT)
+      pCtx->uNumSC = 0;
+
+    pCtx->tConceal.bSkipRemainingNals = false;
+
+    return ret;
   }
   return ERR_UNIT_FAILED;
 }
@@ -1500,7 +1528,7 @@ static bool CheckDisplayBufferCanBeUsed(AL_TDecCtx* pCtx, AL_TBuffer* pBuf)
   if(iPitchY < (int)AL_Decoder_GetMinPitch(tOutputDim.iWidth, pSettings->iBitDepth, eDisplayStorageMode))
     return false;
 
-  if(pCtx->tStreamSettings.eChroma == AL_CHROMA_4_4_4)
+  if(pSettings->eChroma == AL_CHROMA_4_4_4)
   {
     int const iPitchU = AL_PixMapBuffer_GetPlanePitch(pBuf, AL_PLANE_U);
     int const iPitchV = AL_PixMapBuffer_GetPlanePitch(pBuf, AL_PLANE_V);
@@ -1508,7 +1536,7 @@ static bool CheckDisplayBufferCanBeUsed(AL_TDecCtx* pCtx, AL_TBuffer* pBuf)
     if((iPitchY != iPitchU) || (iPitchU != iPitchV))
       return false;
   }
-  else if(pCtx->tStreamSettings.eChroma != AL_CHROMA_MONO)
+  else if(pSettings->eChroma != AL_CHROMA_MONO)
   {
     int const iPitchUV = AL_PixMapBuffer_GetPlanePitch(pBuf, AL_PLANE_UV);
 
@@ -1605,12 +1633,13 @@ bool AL_Default_Decoder_PreallocateBuffers(AL_TDecoder* pAbsDec)
   AL_Assert(!pCtx->bIsBuffersAllocated);
 
   AL_ERR error = AL_ERR_NO_MEMORY;
-  AL_TStreamSettings const* pStreamSettings = &pCtx->tStreamSettings;
+  pCtx->tInitialStreamSettings = pCtx->tStreamSettings;
+  AL_TStreamSettings const* pStreamSettings = &pCtx->tInitialStreamSettings;
+
+  if(!CheckStreamSettings(pStreamSettings))
+    return false;
 
   int iSPSMaxSlices = RoundUp(pCtx->pChanParam->iHeight, 16) / 16;
-  int iSizeALF = 0;
-  int iSizeLmcs = 0;
-  int iSizeCQp = 0;
 
   if(isAVC(pCtx->pChanParam->eCodec))
     iSPSMaxSlices = AL_AVC_GetMaxNumberOfSlices(pStreamSettings->eProfile, pStreamSettings->iLevel,
@@ -1620,8 +1649,6 @@ bool AL_Default_Decoder_PreallocateBuffers(AL_TDecoder* pAbsDec)
   if(isHEVC(pCtx->pChanParam->eCodec))
     iSPSMaxSlices = AL_HEVC_GetMaxNumberOfSlices(pStreamSettings->iLevel);
 
-  int iSizeWP = iSPSMaxSlices * WP_SLICE_SIZE;
-  int iSizeSP = iSPSMaxSlices * sizeof(AL_TDecSliceParam);
   int iSizeCompData = 0;
 
   if(isAVC(pCtx->pChanParam->eCodec))
@@ -1631,14 +1658,23 @@ bool AL_Default_Decoder_PreallocateBuffers(AL_TDecoder* pAbsDec)
     iSizeCompData = AL_GetAllocSize_HevcCompData(pStreamSettings->tDim, pStreamSettings->eChroma);
   int const iSizeCompMap = AL_GetAllocSize_DecCompMap(pStreamSettings->tDim);
 
+  int iSizeALF = 0;
+  int iSizeLmcs = 0;
+  int iSizeCQp = 0;
+
+  int iSizeWP = iSPSMaxSlices * WP_SLICE_SIZE;
+  int iSizeSP = iSPSMaxSlices * sizeof(AL_TDecSliceParam);
+
   if(!AL_Default_Decoder_AllocPool(pCtx, iSizeALF, iSizeLmcs, iSizeWP, iSizeSP, iSizeCompData, iSizeCompMap, iSizeCQp))
     goto fail_alloc;
 
-  int iDpbMaxBuf = 0, iMaxBuf = 0, iSizeMV = 0;
+  int iMaxBuf = 0;
+  int iDpbMaxBuf = 0;
+  int iSizeMV = 0;
 
   if(isAVC(pCtx->pChanParam->eCodec))
   {
-    iDpbMaxBuf = AL_AVC_GetMaxDpbBuffers(pStreamSettings, 0);
+    iDpbMaxBuf = AL_AVC_GetMaxDpbBuffers(pStreamSettings, pStreamSettings->iMaxRef);
     iMaxBuf = AL_AVC_GetMinOutputBuffersNeeded(pStreamSettings, pCtx->iStackSize);
     iSizeMV = AL_GetAllocSize_AvcMV(pStreamSettings->tDim);
   }
@@ -1717,21 +1753,6 @@ static AL_TBuffer* AllocEosBufferAVC(bool bSplitInput, AL_TAllocator* pAllocator
 }
 
 /*****************************************************************************/
-static bool CheckStreamSettings(AL_TStreamSettings const* pStreamSettings)
-{
-  if(!IsAtLeastOneStreamSettingsSet(pStreamSettings))
-    return true;
-
-  if(!IsAllStreamSettingsSet(pStreamSettings))
-    return false;
-
-  if(pStreamSettings->iBitDepth > AL_HWConfig_Dec_GetSupportedBitDepth())
-    return false;
-
-  return true;
-}
-
-/*****************************************************************************/
 static bool CheckDecodeUnit(AL_EDecUnit eDecUnit)
 {
   return eDecUnit != AL_DEC_UNIT_MAX_ENUM;
@@ -1798,7 +1819,7 @@ static bool CheckSettings(AL_TDecSettings const* pSettings)
 }
 
 /*****************************************************************************/
-static void AssignSettings(AL_TDecCtx* const pCtx, AL_TDecSettings const* const pSettings)
+static void AssignSettings(AL_TDecCtx* pCtx, AL_TDecSettings const* pSettings)
 {
   pCtx->eInputMode = pSettings->eInputMode;
   pCtx->iStackSize = pSettings->iStackSize;
@@ -1807,9 +1828,7 @@ static void AssignSettings(AL_TDecCtx* const pCtx, AL_TDecSettings const* const 
   pCtx->eDpbMode = pSettings->eDpbMode;
   pCtx->tStreamSettings = pSettings->tStream;
   pCtx->bUseIFramesAsSyncPoint = pSettings->bUseIFramesAsSyncPoint;
-
-  if(pCtx->tStreamSettings.bDecodeIntraOnly)
-    pCtx->bIsIFrame = true;
+  pCtx->bIsIFrame = pSettings->tStream.bDecodeIntraOnly;
 
   AL_TDecChanParam* pChan = pCtx->pChanParam;
   pChan->uMaxLatency = pSettings->iStackSize;
@@ -1869,7 +1888,8 @@ bool AL_Default_Decoder_AllocPool(AL_TDecCtx* pCtx, int iALFSize, int iLmcsSize,
   int iPoolSize = pCtx->bStillPictureProfile ? 1 : pCtx->iStackSize;
 
   AL_ECodec const eCodec = pCtx->pChanParam->eCodec;
-  AL_EChromaOrder eChromaOrder = AL_ChromaModeToChromaOrder(pCtx->tStreamSettings.eChroma);
+  AL_TStreamSettings const* pStreamSettings = &pCtx->tStreamSettings;
+  AL_EChromaOrder eChromaOrder = AL_ChromaModeToChromaOrder(pStreamSettings->eChroma);
   const uint32_t uRefListSize = AL_GetRefListOffsets(NULL, eCodec, eChromaOrder, sizeof(AL_PADDR));
 
   // Alloc Decoder buffers
@@ -2112,7 +2132,7 @@ AL_ERR AL_CreateDefaultDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler,
 }
 
 /*****************************************************************************/
-AL_EFbStorageMode AL_Default_Decoder_GetDisplayStorageMode(AL_TDecCtx* pCtx, int iBitDepth, bool* pEnableCompression)
+AL_EFbStorageMode AL_Default_Decoder_GetDisplayStorageMode(AL_TDecCtx const* pCtx, int iBitDepth, bool* pEnableCompression)
 {
   (void)iBitDepth;
   AL_EFbStorageMode eDisplayStorageMode = pCtx->pChanParam->eFBStorageMode;

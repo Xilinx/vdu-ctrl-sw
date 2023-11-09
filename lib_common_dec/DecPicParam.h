@@ -1,25 +1,5 @@
-/******************************************************************************
-* Copyright (C) 2015-2023 Allegro DVT2
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in all
-* copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-*
-******************************************************************************/
+// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-License-Identifier: MIT
 
 /****************************************************************************
    -----------------------------------------------------------------------------
@@ -61,7 +41,7 @@
 #define AL_DEC_OPT_WaveFront 0x00400000
 #define AL_DEC_OPT_CuQPDeltaFlag 0x00800000
 
-#define AL_SET_DEC_OPT(pPictParam, Opt, Val) (pPictParam)->OptionFlags = (((pPictParam)->OptionFlags & ~(AL_DEC_OPT_ ## Opt)) | ((Val) * (AL_DEC_OPT_ ## Opt)))
+#define AL_SET_DEC_OPT(pPictParam, Opt, Val) (pPictParam)->OptionFlags = (((pPictParam)->OptionFlags & ~(AL_DEC_OPT_ ## Opt)) | (((Val) * (AL_DEC_OPT_ ## Opt)) & (AL_DEC_OPT_ ## Opt)))
 #define AL_GET_DEC_OPT(pPictParam, Opt) ((pPictParam)->OptionFlags & (AL_DEC_OPT_ ## Opt))
 
 /****************************************************************************/
@@ -195,6 +175,8 @@ typedef struct AL_t_DecPicStatus
   uint32_t uNumLCU;
   uint32_t uNumBytes;
   uint32_t uNumBins;
+  uint32_t uNumConcealedLCU;
+  bool bConcealed;
   uint32_t uCRC;
   AL_TDecPicState tDecPicState;
 }AL_TDecPicStatus;

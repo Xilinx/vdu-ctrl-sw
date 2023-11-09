@@ -1,25 +1,5 @@
-/******************************************************************************
-* Copyright (C) 2015-2023 Allegro DVT2
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in all
-* copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-*
-******************************************************************************/
+// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-License-Identifier: MIT
 
 /*************************************************************************//*!
    \addtogroup Buffers
@@ -318,6 +298,17 @@ void AL_Buffer_FlushMemory(const AL_TBuffer* pBuf);
    \param[in] pBuf Pointer to an AL_TBuffer
 *****************************************************************************/
 void AL_Buffer_Cleanup(AL_TBuffer* pBuf);
+
+/*************************************************************************//*!
+   \brief Shallow copy the AL_TBuffer
+
+   It copies everything but the pCallBack. This is because user certainly only want to have pointer to underlying data with its own metadata
+
+   \param[in] pCopy Pointer to an AL_TBuffer
+   \param[in] pCallBack is called after the buffer reference count reaches zero
+   \return Returns a shallow copy of pCopy if successful. Returns NULL otherwise
+*****************************************************************************/
+AL_TBuffer* AL_Buffer_ShallowCopy(AL_TBuffer const* pCopy, PFN_RefCount_CallBack pCallBack);
 
 /*@}*/
 

@@ -1,25 +1,5 @@
-/******************************************************************************
-* Copyright (C) 2015-2023 Allegro DVT2
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in all
-* copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-*
-******************************************************************************/
+// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-License-Identifier: MIT
 
 /**************************************************************************//*!
    \defgroup Decoder_Settings Settings
@@ -29,35 +9,9 @@
  *****************************************************************************/
 #pragma once
 
+#include "lib_common_dec/StreamSettings.h"
 #include "lib_common/SliceConsts.h"
 #include "lib_common/PicFormat.h"
-#include "lib_common/VideoMode.h"
-
-/*************************************************************************//*!
-   \brief Stream's settings
- *************************************************************************/
-typedef struct
-{
-  AL_TDimension tDim; /*!< Stream's dimension (width / height) */
-  AL_EChromaMode eChroma; /*!< Stream's chroma mode (400/420/422/444) */
-  int iBitDepth; /*!< Stream's bit depth */
-  int iLevel; /*!< Stream's level */
-  AL_EProfile eProfile; /*!< Stream's profile */
-  AL_ESequenceMode eSequenceMode; /*!< Stream's sequence mode */
-  bool bDecodeIntraOnly;  /*!< Should the decoder process only I frames  */
-}AL_TStreamSettings;
-
-/*************************************************************************//*!
-   \brief Cropping Info on the YUV reconstructed
- *************************************************************************/
-typedef struct t_CropInfo
-{
-  bool bCropping;         /*!< Cropping information present flag    */
-  uint32_t uCropOffsetLeft;   /*!< Left   offset of the cropping window */
-  uint32_t uCropOffsetRight;  /*!< Right  offset of the cropping window */
-  uint32_t uCropOffsetTop;    /*!< Top    offset of the cropping window */
-  uint32_t uCropOffsetBottom; /*!< Bottom offset of the cropping window */
-}AL_TCropInfo;
 
 /*************************************************************************//*!
    \brief Info on stream decoding
@@ -72,6 +26,7 @@ typedef struct t_InfoDecode
   AL_EFbStorageMode eFbStorageMode; /*! frame buffer storage mode */
   AL_EPicStruct ePicStruct; /*!< structure (frame/field, top/Bottom) of the current framebuffer */
   uint32_t uCRC; /*!< framebuffer data crc */
+  AL_EOutputType eOutputID;
   AL_TPosition tPos; /*!< Position of the top left decoded pixel */
 }AL_TInfoDecode;
 

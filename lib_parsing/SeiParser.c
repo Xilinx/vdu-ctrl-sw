@@ -1,25 +1,5 @@
-/******************************************************************************
-* Copyright (C) 2015-2023 Allegro DVT2
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in all
-* copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-*
-******************************************************************************/
+// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-License-Identifier: MIT
 
 #include "SeiParser.h"
 #include "lib_common/SeiInternal.h"
@@ -45,7 +25,7 @@ static bool SeiRecoveryPoint(AL_TRbspParser* pRP, AL_TRecoveryPoint* pRecoveryPo
 
   /*changing_slice_group_idc = */ u(pRP, 2);
 
-  return byte_alignment(pRP);
+  return true;
 }
 
 /*****************************************************************************/
@@ -65,10 +45,7 @@ static bool SeiMasteringDisplayColourVolume(AL_TMasteringDisplayColourVolume* pM
   pMDCV->max_display_mastering_luminance = u(pRP, 32);
   pMDCV->min_display_mastering_luminance = u(pRP, 32);
 
-  if(byte_aligned(pRP))
-    return true;
-
-  return byte_alignment(pRP);
+  return true;
 }
 
 /*****************************************************************************/
@@ -79,10 +56,7 @@ static bool SeiContentLightLevel(AL_TContentLightLevel* pCLL, AL_TRbspParser* pR
   pCLL->max_content_light_level = u(pRP, 16);
   pCLL->max_pic_average_light_level = u(pRP, 16);
 
-  if(byte_aligned(pRP))
-    return true;
-
-  return byte_alignment(pRP);
+  return true;
 }
 
 /*****************************************************************************/
@@ -90,10 +64,7 @@ static bool SeiAlternativeTransferCharacteristics(AL_TAlternativeTransferCharact
 {
   pATC->preferred_transfer_characteristics = AL_VUIValueToTransferCharacteristics(u(pRP, 8));
 
-  if(byte_aligned(pRP))
-    return true;
-
-  return byte_alignment(pRP);
+  return true;
 }
 
 /*****************************************************************************/
@@ -304,10 +275,7 @@ bool SeiSt2094_40(AL_TDynamicMeta_ST2094_40* pST2094_40, AL_TRbspParser* pRP)
       pWinTransfo->color_saturation_weight = u(pRP, 6);
   }
 
-  if(byte_aligned(pRP))
-    return true;
-
-  return byte_alignment(pRP);
+  return true;
 }
 
 /*****************************************************************************/
@@ -390,86 +358,85 @@ static bool ParseCommonSei(SeiParserParam* pParam, AL_TRbspParser* pRP, AL_ESeiP
 /*****************************************************************************/
 bool ParseSeiHeader(AL_TRbspParser* pRP, SeiParserCB* pCB)
 {
-  do
-  {
-    uint32_t uPayloadType = 0;
-    uint32_t uPayloadSize = 0;
+  uint32_t uPayloadType = 0;
+  uint32_t uPayloadSize = 0;
 
-    // Get payload type
-    // ----------------
-    if(!byte_aligned(pRP))
+  // Get payload type
+  // ----------------
+  if(!byte_aligned(pRP))
+    return false;
+
+  uint8_t byte = getbyte(pRP);
+
+  while(byte == 0xff)
+  {
+    uPayloadType += 255;
+    byte = getbyte(pRP);
+  }
+
+  uPayloadType += byte;
+  AL_ESeiPayloadType ePayloadType = (AL_ESeiPayloadType)uPayloadType;
+
+  // Get payload size
+  // ----------------
+  byte = getbyte(pRP);
+
+  while(byte == 0xff)
+  {
+    uPayloadSize += 255;
+    byte = getbyte(pRP);
+  }
+
+  uPayloadSize += byte;
+
+  // Parse the payload
+  // -----------------
+  uint32_t uOffsetBefore = offset(pRP);
+  bool bCanSendToUser = true;
+  bool bParsed = false;
+  bool bParsingOk = true;
+  uint8_t* pPayloadData = get_raw_data(pRP);
+
+  // Call codec specific SEI parsing
+  if(pCB)
+    bParsingOk = pCB->func(pCB->pParam, pRP, ePayloadType, uPayloadSize, &bCanSendToUser, &bParsed);
+
+  // If the codec specific hasn't parsed, try the common SEI payload
+  if(!bParsed)
+    bParsingOk = ParseCommonSei(pCB->pParam, pRP, ePayloadType, uPayloadSize, &bCanSendToUser);
+
+  // Try to catch up if the parsing was bad
+  if(!bParsingOk)
+  {
+    uint32_t uReadSize = offset(pRP) - uOffsetBefore;
+
+    if(uReadSize > uPayloadSize << 3)
       return false;
 
-    uint8_t byte = getbyte(pRP);
-
-    while(byte == 0xff)
-    {
-      uPayloadType += 255;
-      byte = getbyte(pRP);
-    }
-
-    uPayloadType += byte;
-    AL_ESeiPayloadType ePayloadType = (AL_ESeiPayloadType)uPayloadType;
-
-    // Get payload size
-    // ----------------
-    byte = getbyte(pRP);
-
-    while(byte == 0xff)
-    {
-      uPayloadSize += 255;
-      byte = getbyte(pRP);
-    }
-
-    uPayloadSize += byte;
-
-    // Parse the payload
-    // -----------------
-    uint32_t uOffsetBefore = offset(pRP);
-    bool bCanSendToUser = true;
-    bool bParsed = false;
-    bool bParsingOk = true;
-    uint8_t* pPayloadData = get_raw_data(pRP);
-
-    // Call codec specific SEI parsing
-    if(pCB)
-      bParsingOk = pCB->func(pCB->pParam, pRP, ePayloadType, uPayloadSize, &bCanSendToUser, &bParsed);
-
-    // If the codec specific hasn't parsed, try the common SEI payload
-    if(!bParsed)
-      bParsingOk = ParseCommonSei(pCB->pParam, pRP, ePayloadType, uPayloadSize, &bCanSendToUser);
-
-    // Try to catch up if the parsing was bad
-    if(!bParsingOk)
-    {
-      uint32_t uReadSize = offset(pRP) - uOffsetBefore;
-
-      if(uReadSize > uPayloadSize << 3)
-        return false;
-
-      skip(pRP, (uPayloadSize << 3) - uReadSize);
-    }
-
-    // Skip remaining payload
-    // ----------------------
-    uint32_t uOffsetAfter = offset(pRP);
-    int32_t iRemainingPayload = (uPayloadSize << 3) - (int32_t)(uOffsetAfter - uOffsetBefore);
-
-    if(iRemainingPayload > 0)
-      skip(pRP, iRemainingPayload);
-
-    // Attach sei to the SeiMetaData
-    // -----------------------------
-    if(bCanSendToUser && pCB->pParam->pMeta)
-      if(!AL_SeiMetaData_AddPayload(pCB->pParam->pMeta, (AL_TSeiMessage) {pCB->pParam->bIsPrefix, ePayloadType, pPayloadData, uPayloadSize }))
-        return false;
-
-    // Send sei to the user
-    // --------------------
-    if(bCanSendToUser && pCB->pParam->cb->func)
-      pCB->pParam->cb->func(pCB->pParam->bIsPrefix, ePayloadType, pPayloadData, uPayloadSize, pCB->pParam->cb->userParam);
+    skip(pRP, (uPayloadSize << 3) - uReadSize);
   }
-  while(more_rbsp_data(pRP));
+
+  // Skip remaining payload
+  // ----------------------
+  uint32_t uOffsetAfter = offset(pRP);
+  int32_t iRemainingPayload = (uPayloadSize << 3) - (int32_t)(uOffsetAfter - uOffsetBefore);
+
+  if(iRemainingPayload > 0)
+    skip(pRP, iRemainingPayload);
+
+  if(!byte_aligned(pRP))
+    byte_alignment(pRP);
+
+  // Attach sei to the SeiMetaData
+  // -----------------------------
+  if(bCanSendToUser && pCB->pParam->pMeta)
+    if(!AL_SeiMetaData_AddPayload(pCB->pParam->pMeta, (AL_TSeiMessage) {pCB->pParam->bIsPrefix, ePayloadType, pPayloadData, uPayloadSize }))
+      return false;
+
+  // Send sei to the user
+  // --------------------
+  if(bCanSendToUser && pCB->pParam->cb->func)
+    pCB->pParam->cb->func(pCB->pParam->bIsPrefix, ePayloadType, pPayloadData, uPayloadSize, pCB->pParam->cb->userParam);
 
   return true;
 }

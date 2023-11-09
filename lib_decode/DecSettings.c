@@ -1,101 +1,18 @@
-/******************************************************************************
-* Copyright (C) 2015-2023 Allegro DVT2
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in all
-* copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-*
-******************************************************************************/
+// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-License-Identifier: MIT
 
 #include "lib_rtos/lib_rtos.h"
 #include "lib_assert/al_assert.h"
 #include "lib_decode/DecSettingsInternal.h"
+#include "lib_common_dec/StreamSettingsInternal.h"
+#include "lib_common_dec/DecHardwareConfig.h"
 #include "lib_common/Utils.h"
-#include "lib_common/HardwareConfig.h"
 #include "lib_common/Profiles.h"
+#include "lib_common/BufConst.h"
 
 /***************************************************************************/
 #define MSGF(msg, ...) { if(pOut) fprintf(pOut, msg "\r\n", __VA_ARGS__); }
 #define MSG(msg) { if(pOut) fprintf(pOut, msg "\r\n"); }
-#define STREAM_SETTING_UNKNOWN -1
-
-/******************************************************************************/
-static bool IsAtLeastOneStreamDimSet(AL_TDimension tDim)
-{
-  return (tDim.iWidth > 0) || (tDim.iHeight > 0);
-}
-
-/******************************************************************************/
-static bool IsAllStreamDimSet(AL_TDimension tDim)
-{
-  return (tDim.iWidth > 0) && (tDim.iHeight > 0);
-}
-
-/******************************************************************************/
-static bool IsStreamChromaSet(AL_EChromaMode eChroma)
-{
-  return eChroma != AL_CHROMA_MAX_ENUM;
-}
-
-/******************************************************************************/
-static bool IsStreamBitDepthSet(int iBitDepth)
-{
-  return iBitDepth > 0;
-}
-
-/******************************************************************************/
-static bool IsStreamLevelSet(int iLevel)
-{
-  return iLevel != STREAM_SETTING_UNKNOWN;
-}
-
-/******************************************************************************/
-static bool IsStreamProfileSet(int iProfileIdc)
-{
-  return iProfileIdc != STREAM_SETTING_UNKNOWN;
-}
-
-/******************************************************************************/
-static bool IsStreamSequenceModeSet(AL_ESequenceMode eSequenceMode)
-{
-  return eSequenceMode != AL_SM_MAX_ENUM;
-}
-
-/******************************************************************************/
-bool IsAllStreamSettingsSet(AL_TStreamSettings const* pStreamSettings)
-{
-  return IsAllStreamDimSet(pStreamSettings->tDim) &&
-         IsStreamChromaSet(pStreamSettings->eChroma) &&
-         IsStreamBitDepthSet(pStreamSettings->iBitDepth) &&
-         IsStreamLevelSet(pStreamSettings->iLevel) &&
-         IsStreamProfileSet(pStreamSettings->eProfile) &&
-         IsStreamSequenceModeSet(pStreamSettings->eSequenceMode);
-}
-
-/*****************************************************************************/
-bool IsAtLeastOneStreamSettingsSet(AL_TStreamSettings const* pStreamSettings)
-{
-  return IsAtLeastOneStreamDimSet(pStreamSettings->tDim) ||
-         IsStreamChromaSet(pStreamSettings->eChroma) ||
-         IsStreamBitDepthSet(pStreamSettings->iBitDepth) ||
-         IsStreamLevelSet(pStreamSettings->iLevel) ||
-         IsStreamProfileSet(pStreamSettings->eProfile) ||
-         IsStreamSequenceModeSet(pStreamSettings->eSequenceMode);
-}
 
 /***************************************************************************/
 void AL_DecSettings_SetDefaults(AL_TDecSettings* pSettings)
@@ -123,10 +40,11 @@ void AL_DecSettings_SetDefaults(AL_TDecSettings* pSettings)
   pSettings->tStream.eProfile = STREAM_SETTING_UNKNOWN;
   pSettings->tStream.iLevel = STREAM_SETTING_UNKNOWN;
   pSettings->tStream.bDecodeIntraOnly = false;
+  pSettings->tStream.iMaxRef = MAX_REF;
 }
 
 /***************************************************************************/
-int AL_DecSettings_CheckValidity(AL_TDecSettings* pSettings, FILE* pOut)
+int AL_DecSettings_CheckValidity(AL_TDecSettings const* pSettings, FILE* pOut)
 {
   AL_Assert(pSettings);
 
@@ -177,7 +95,7 @@ int AL_DecSettings_CheckValidity(AL_TDecSettings* pSettings, FILE* pOut)
   if((pSettings->tOutputPosition.iX % HStep) != 0 || (pSettings->tOutputPosition.iY % VStep) != 0)
   {
     ++err;
-    MSG("The output position doesn't fit the alignement constraints for the current buffer format");
+    MSG("The output position doesn't fit the alignment constraints for the current buffer format");
   }
 
   if(pSettings->tStream.bDecodeIntraOnly && !(pSettings->eCodec == AL_CODEC_AVC || pSettings->eCodec == AL_CODEC_HEVC || pSettings->eCodec == AL_CODEC_VVC))

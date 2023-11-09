@@ -1,25 +1,5 @@
-/******************************************************************************
-* Copyright (C) 2015-2023 Allegro DVT2
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in all
-* copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-*
-******************************************************************************/
+// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-License-Identifier: MIT
 
 /**************************************************************************//*!
    \addtogroup PicFormat
@@ -59,6 +39,18 @@ typedef struct
   AL_TPosition tPos;
   AL_TDimension tDim;
 }AL_TWindow;
+
+/*************************************************************************//*!
+   \brief Cropping Info on the YUV reconstructed
+ *************************************************************************/
+typedef struct t_CropInfo
+{
+  bool bCropping;         /*!< Cropping information present flag    */
+  uint32_t uCropOffsetLeft;   /*!< Left   offset of the cropping window */
+  uint32_t uCropOffsetRight;  /*!< Right  offset of the cropping window */
+  uint32_t uCropOffsetTop;    /*!< Top    offset of the cropping window */
+  uint32_t uCropOffsetBottom; /*!< Bottom offset of the cropping window */
+}AL_TCropInfo;
 
 /*************************************************************************//*!
    \brief chroma_format_idc
@@ -109,6 +101,33 @@ typedef struct AL_t_PicFormat
   bool bCompressed;
   bool b10bPacked;
 }AL_TPicFormat;
+
+/*************************************************************************//*!
+   \brief Output type
+ *************************************************************************/
+typedef enum AL_e_OutputType
+{
+  AL_OUTPUT_PRIMARY,
+  AL_OUTPUT_MAIN,
+  AL_OUTPUT_POSTPROC,
+  AL_OUTPUT_MAX_ENUM,
+}AL_EOutputType;
+
+/****************************************************************************/
+static inline AL_EChromaOrder GetChromaOrder(AL_EChromaMode eChromaMode)
+{
+  return eChromaMode == AL_CHROMA_MONO ? AL_C_ORDER_NO_CHROMA :
+         (eChromaMode == AL_CHROMA_4_4_4 ? AL_C_ORDER_U_V : AL_C_ORDER_SEMIPLANAR);
+}
+
+/****************************************************************************/
+static inline bool IsRaster(AL_EFbStorageMode eFBStorageMode)
+{
+  if(eFBStorageMode == AL_FB_RASTER
+     )
+    return true;
+  return false;
+}
 
 /*@}*/
 

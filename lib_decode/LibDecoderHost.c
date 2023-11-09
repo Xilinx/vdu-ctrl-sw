@@ -1,38 +1,39 @@
-/******************************************************************************
-* Copyright (C) 2015-2023 Allegro DVT2
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in all
-* copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-*
-******************************************************************************/
+// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-License-Identifier: MIT
 
+#include "lib_decode/I_DecSchedulerInfo.h"
 #include "lib_decode/lib_decode.h"
 #include "lib_decode/DefaultDecoder.h"
 #include "lib_common_dec/DecBuffersInternal.h"
 #include "lib_decode/I_DecArch.h"
+#include "lib_rtos/types.h"
 
 AL_ERR CreateAvcDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler, AL_TAllocator* pAllocator, AL_TDecSettings* pSettings, AL_TDecCallBacks* pCB);
 AL_ERR CreateHevcDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler, AL_TAllocator* pAllocator, AL_TDecSettings* pSettings, AL_TDecCallBacks* pCB);
 
-/*****************************************************************************/
+static bool CheckVersion(AL_TIDecSchedulerVersion const* pVersion)
+{
+  if(pVersion->version.uMajor != AL_VERSION_MAJOR)
+    return false;
+
+  if(pVersion->version.uMinor != AL_VERSION_MINOR)
+    return false;
+
+  if(pVersion->version.uPatch != AL_VERSION_PATCH)
+    return false;
+  return true;
+}
+
+/****************************************************************************/
 static AL_ERR AL_Decoder_Create_Host(AL_HDecoder* hDec, AL_IDecScheduler* pScheduler, AL_TAllocator* pAllocator, AL_TDecSettings* pSettings, AL_TDecCallBacks* pCB)
 {
   if(!pSettings || !pCB || !pAllocator || !pScheduler || !hDec)
+    return AL_ERROR;
+
+  AL_TIDecSchedulerVersion tVersion;
+  AL_IDecScheduler_Get(pScheduler, AL_IDECSCHEDULER_VERSION, &tVersion);
+
+  if(!CheckVersion(&tVersion))
     return AL_ERROR;
 
   if(pSettings->eCodec == AL_CODEC_AVC)

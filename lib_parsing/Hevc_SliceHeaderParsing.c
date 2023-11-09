@@ -1,25 +1,5 @@
-/******************************************************************************
-* Copyright (C) 2015-2023 Allegro DVT2
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in all
-* copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-*
-******************************************************************************/
+// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-License-Identifier: MIT
 
 #include "Hevc_SliceHeaderParsing.h"
 #include "HevcParser.h"
@@ -31,7 +11,7 @@
 #include "lib_rtos/lib_rtos.h"
 
 /*****************************************************************************/
-static void AL_HEVC_sSetDefaultSliceHeader(AL_THevcSliceHdr* pSlice)
+void AL_HEVC_SetDefaultSliceHeader(AL_THevcSliceHdr* pSlice)
 {
   uint8_t first_slice_segment_in_pic_flag = pSlice->first_slice_segment_in_pic_flag;
   uint8_t no_output_prior_pics_flag = pSlice->no_output_of_prior_pics_flag;
@@ -139,7 +119,7 @@ static void AL_HEVC_sReadWPCoeff(AL_TRbspParser* pRP, AL_THevcSliceHdr* pSlice, 
    \param[in]  pRP    Pointer to NAL buffer
    \param[out] pSlice Pointer to the slice header structure that will be filled
 *****************************************************************************/
-static void AL_HEVC_spred_weight_table(AL_TRbspParser* pRP, AL_THevcSliceHdr* pSlice)
+static void AL_HEVC_spread_weight_table(AL_TRbspParser* pRP, AL_THevcSliceHdr* pSlice)
 {
   pSlice->pred_weight_table.luma_log2_weight_denom = Clip3(ue(pRP), 0, AL_MAX_WP_DENOM);
   pSlice->pred_weight_table.chroma_log2_weight_denom = Clip3(pSlice->pred_weight_table.luma_log2_weight_denom + (pSlice->pSPS->ChromaArrayType ? se(pRP) : 0), 0, AL_MAX_WP_DENOM);
@@ -285,7 +265,7 @@ bool AL_HEVC_ParseSliceHeader(AL_THevcSliceHdr* pSlice, AL_THevcSliceHdr* pIndSl
 
   if(pSlice->first_slice_segment_in_pic_flag)
   {
-    AL_HEVC_sSetDefaultSliceHeader(pSlice);
+    AL_HEVC_SetDefaultSliceHeader(pSlice);
     pSlice->slice_segment_address = 0;
   }
 
@@ -320,11 +300,14 @@ bool AL_HEVC_ParseSliceHeader(AL_THevcSliceHdr* pSlice, AL_THevcSliceHdr* pIndSl
     if(pSlice->dependent_slice_segment_flag)
       AL_HEVC_sInitSlice(pSlice, pIndSlice);
     else
-      AL_HEVC_sSetDefaultSliceHeader(pSlice);
+      AL_HEVC_SetDefaultSliceHeader(pSlice);
     TransferRps(pSlice, pIndSlice);
 
     int syntax_size = ceil_log2(uMaxLcu);
-    pSlice->slice_segment_address = Clip3(u(pRP, syntax_size), 1, uMaxLcu - 1);
+    pSlice->slice_segment_address = u(pRP, syntax_size);
+
+    if((uint32_t)pSlice->slice_segment_address >= uMaxLcu)
+      return false;
   }
 
   if(!pConceal->bValidFrame && pSlice->slice_segment_address)
@@ -370,7 +353,10 @@ bool AL_HEVC_ParseSliceHeader(AL_THevcSliceHdr* pSlice, AL_THevcSliceHdr* pIndSl
         return false;
 
       if(!pSlice->short_term_ref_pic_set_sps_flag)
-        AL_HEVC_short_term_ref_pic_set(pSlice->pSPS, pSps->num_short_term_ref_pic_sets, pRP);
+      {
+        if(!AL_HEVC_short_term_ref_pic_set(pSlice->pSPS, pSps->num_short_term_ref_pic_sets, pRP))
+          return false;
+      }
       else if(pSps->num_short_term_ref_pic_sets > 1)
       {
         int syntax_size = ceil_log2(pSps->num_short_term_ref_pic_sets);
@@ -481,7 +467,7 @@ bool AL_HEVC_ParseSliceHeader(AL_THevcSliceHdr* pSlice, AL_THevcSliceHdr* pIndSl
 
       if((pPps->weighted_pred_flag && pSlice->slice_type == AL_SLICE_P) ||
          (pPps->weighted_bipred_flag && pSlice->slice_type == AL_SLICE_B))
-        AL_HEVC_spred_weight_table(pRP, pSlice);
+        AL_HEVC_spread_weight_table(pRP, pSlice);
 
       pSlice->five_minus_max_num_merge_cand = ue(pRP);
 

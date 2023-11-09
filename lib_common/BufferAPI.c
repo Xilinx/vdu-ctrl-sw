@@ -1,25 +1,5 @@
-/******************************************************************************
-* Copyright (C) 2015-2023 Allegro DVT2
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in all
-* copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-*
-******************************************************************************/
+// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-License-Identifier: MIT
 
 #include "lib_common/BufferAPIInternal.h"
 #include "lib_assert/al_assert.h"
@@ -38,7 +18,7 @@ typedef struct al_t_BufferImpl
 
   AL_TMetaData** pMeta;
   int iMetaCount;
-  int iAllocedMetaCount;
+  int iAllocatedMetaCount;
 
   void* pUserData; /*!< user private data */
   PFN_RefCount_CallBack pCallBack; /*!< user callback. called when the buffer refcount reaches 0 */
@@ -86,9 +66,11 @@ static bool initData(AL_TBufferImpl* pBuf, AL_TAllocator* pAllocator, PFN_RefCou
   pBuf->pUserData = NULL;
   pBuf->pMeta = NULL;
   pBuf->iMetaCount = 0;
-  pBuf->iAllocedMetaCount = 0;
+  pBuf->iAllocatedMetaCount = 0;
   pBuf->iRefCount = 0;
   pBuf->buf.iChunkCnt = 0;
+  Rtos_Memset(pBuf->buf.zSizes, 0, sizeof(pBuf->buf.zSizes));
+  Rtos_Memset(pBuf->buf.hBufs, 0, sizeof(pBuf->buf.hBufs));
 
   pBuf->pLock = Rtos_CreateMutex();
 
@@ -174,6 +156,28 @@ AL_TBuffer* AL_Buffer_WrapData(uint8_t* pData, size_t zSize, PFN_RefCount_CallBa
 AL_TBuffer* AL_Buffer_Create(AL_TAllocator* pAllocator, AL_HANDLE hBuf, size_t zSize, PFN_RefCount_CallBack pCallBack)
 {
   return createBufferWithOneChunk(pAllocator, hBuf, zSize, pCallBack);
+}
+
+AL_TBuffer* AL_Buffer_ShallowCopy(AL_TBuffer const* pCopy, PFN_RefCount_CallBack pCallBack)
+{
+  if(!pCopy)
+    return NULL;
+
+  AL_TBuffer* pBuf = createEmptyBuffer(pCopy->pAllocator, pCallBack);
+
+  if(pBuf == NULL)
+    return NULL;
+
+  for(int i = 0; i < AL_BUFFER_MAX_CHUNK; i++)
+  {
+    if(addBufferChunk((AL_TBufferImpl*)pBuf, pCopy->hBufs[i], pCopy->zSizes[i]) == AL_BUFFER_BAD_CHUNK)
+    {
+      AL_Buffer_Destroy(pBuf);
+      return NULL;
+    }
+  }
+
+  return pBuf;
 }
 
 AL_TBuffer* AL_Buffer_Create_And_AllocateNamed(AL_TAllocator* pAllocator, size_t zSize, PFN_RefCount_CallBack pCallBack, char const* name)
@@ -292,10 +296,10 @@ bool AL_Buffer_AddMetaData(AL_TBuffer* hBuf, AL_TMetaData* pMeta)
 
   Rtos_GetMutex(pBuf->pLock);
 
-  if(pBuf->iMetaCount == pBuf->iAllocedMetaCount)
+  if(pBuf->iMetaCount == pBuf->iAllocatedMetaCount)
   {
-    size_t const zOldSize = sizeof(AL_TMetaData*) * pBuf->iAllocedMetaCount;
-    size_t const zNewSize = sizeof(AL_TMetaData*) * (pBuf->iAllocedMetaCount + AL_BUFFER_META_ALLOC_COUNT);
+    size_t const zOldSize = sizeof(AL_TMetaData*) * pBuf->iAllocatedMetaCount;
+    size_t const zNewSize = sizeof(AL_TMetaData*) * (pBuf->iAllocatedMetaCount + AL_BUFFER_META_ALLOC_COUNT);
 
     AL_TMetaData** pNewBuffer = (AL_TMetaData**)Realloc(pBuf->pMeta, zOldSize, zNewSize);
 
@@ -305,10 +309,10 @@ bool AL_Buffer_AddMetaData(AL_TBuffer* hBuf, AL_TMetaData* pMeta)
       return false;
     }
 
-    pBuf->iAllocedMetaCount += AL_BUFFER_META_ALLOC_COUNT;
+    pBuf->iAllocatedMetaCount += AL_BUFFER_META_ALLOC_COUNT;
     pBuf->pMeta = pNewBuffer;
 
-    AL_Assert(pBuf->iAllocedMetaCount < AL_BUFFER_META_MAX_COUNT);
+    AL_Assert(pBuf->iAllocatedMetaCount < AL_BUFFER_META_MAX_COUNT);
   }
 
   pBuf->pMeta[pBuf->iMetaCount] = pMeta;

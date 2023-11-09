@@ -1,25 +1,5 @@
-/******************************************************************************
-* Copyright (C) 2015-2023 Allegro DVT2
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in all
-* copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-*
-******************************************************************************/
+// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-License-Identifier: MIT
 
 #include "DecoderFeeder.h"
 #include "InternalError.h"
@@ -73,17 +53,17 @@ static bool Slave_Process(DecoderFeederSlave* slave, AL_TBuffer* startCodeStream
 
   CircBuffer_ConsumeUpToOffset(slave->patchworker->outputCirc, uNewOffset);
 
-  uint32_t uTransferedBytes = AL_Patchworker_Transfer(slave->patchworker);
+  uint32_t uTransferredBytes = AL_Patchworker_Transfer(slave->patchworker);
 
-  if(uTransferedBytes)
+  if(uTransferredBytes)
   {
     bIsIncomingWorkSignaled = true;
     Rtos_ReleaseSemaphore(slave->incomingWorkSem);
   }
 
   AL_TCircMetaData* pMeta = (AL_TCircMetaData*)AL_Buffer_GetMetaData(startCodeStreamView, AL_META_TYPE_CIRCULAR);
-  pMeta->iAvailSize += uTransferedBytes;
-  pMeta->bLastBuffer = AL_Patchworker_IsAllDataTransfered(slave->patchworker);
+  pMeta->iAvailSize += uTransferredBytes;
+  pMeta->bLastBuffer = AL_Patchworker_IsAllDataTransferred(slave->patchworker);
 
   // Decode
   UNIT_ERROR const eErr = AL_Decoder_TryDecodeOneUnit(hDec, startCodeStreamView);
@@ -133,7 +113,7 @@ static bool Slave_Process(DecoderFeederSlave* slave, AL_TBuffer* startCodeStream
     }
 
     // Leave when end of input [all the data were processed in the previous TryDecodeOneUnit]
-    if(AL_Patchworker_IsAllDataTransfered(slave->patchworker))
+    if(AL_Patchworker_IsAllDataTransferred(slave->patchworker))
     {
       AL_Decoder_InternalFlush(slave->hDec);
       slave->decoderHasBeenFlushed = true;
@@ -182,46 +162,46 @@ static void* Slave_EntryPoint(void* userParam)
   return NULL;
 }
 
-static bool CreateSlave(AL_TDecoderFeeder* this)
+static bool CreateSlave(AL_TDecoderFeeder* pDecFeeder)
 {
-  this->slave = Rtos_CreateThread(Slave_EntryPoint, this);
+  pDecFeeder->slave = Rtos_CreateThread(Slave_EntryPoint, pDecFeeder);
 
-  if(!this->slave)
+  if(!pDecFeeder->slave)
     return false;
   return true;
 }
 
-static void DestroySlave(AL_TDecoderFeeder* this)
+static void DestroySlave(AL_TDecoderFeeder* pDecFeeder)
 {
-  if(!this->slave)
+  if(!pDecFeeder->slave)
     return;
 
-  Rtos_AtomicDecrement(&this->keepGoing); /* Will be propagated to the slave */
-  Rtos_ReleaseSemaphore(this->incomingWorkSem);
+  Rtos_AtomicDecrement(&pDecFeeder->keepGoing); /* Will be propagated to the slave */
+  Rtos_ReleaseSemaphore(pDecFeeder->incomingWorkSem);
 
-  Rtos_JoinThread(this->slave);
-  Rtos_DeleteThread(this->slave);
+  Rtos_JoinThread(pDecFeeder->slave);
+  Rtos_DeleteThread(pDecFeeder->slave);
 }
 
-void AL_DecoderFeeder_Destroy(AL_TDecoderFeeder* this)
+void AL_DecoderFeeder_Destroy(AL_TDecoderFeeder* pDecFeeder)
 {
-  if(!this)
+  if(!pDecFeeder)
     return;
-  DestroySlave(this);
-  Rtos_DeleteSemaphore(this->incomingWorkSem);
-  AL_Buffer_Destroy(this->startCodeStreamView);
-  Rtos_Free(this);
+  DestroySlave(pDecFeeder);
+  Rtos_DeleteSemaphore(pDecFeeder->incomingWorkSem);
+  AL_Buffer_Destroy(pDecFeeder->startCodeStreamView);
+  Rtos_Free(pDecFeeder);
 }
 
-void AL_DecoderFeeder_Process(AL_TDecoderFeeder* this)
+void AL_DecoderFeeder_Process(AL_TDecoderFeeder* pDecFeeder)
 {
-  Rtos_ReleaseSemaphore(this->incomingWorkSem);
+  Rtos_ReleaseSemaphore(pDecFeeder->incomingWorkSem);
 }
 
-void AL_DecoderFeeder_Reset(AL_TDecoderFeeder* this)
+void AL_DecoderFeeder_Reset(AL_TDecoderFeeder* pDecFeeder)
 {
-  AL_Patchworker_Reset(this->patchworker);
-  AL_TCircMetaData* pMeta = (AL_TCircMetaData*)AL_Buffer_GetMetaData(this->startCodeStreamView, AL_META_TYPE_CIRCULAR);
+  AL_Patchworker_Reset(pDecFeeder->patchworker);
+  AL_TCircMetaData* pMeta = (AL_TCircMetaData*)AL_Buffer_GetMetaData(pDecFeeder->startCodeStreamView, AL_META_TYPE_CIRCULAR);
   pMeta->iOffset = 0;
   pMeta->iAvailSize = 0;
   pMeta->bLastBuffer = false;
@@ -229,44 +209,44 @@ void AL_DecoderFeeder_Reset(AL_TDecoderFeeder* this)
 
 AL_TDecoderFeeder* AL_DecoderFeeder_Create(AL_TBuffer* stream, AL_HANDLE hDec, AL_TPatchworker* patchworker)
 {
-  AL_TDecoderFeeder* this = Rtos_Malloc(sizeof(*this));
+  AL_TDecoderFeeder* pDecFeeder = Rtos_Malloc(sizeof(*pDecFeeder));
 
-  if(!this)
+  if(!pDecFeeder)
     return NULL;
 
-  this->patchworker = patchworker;
+  pDecFeeder->patchworker = patchworker;
 
-  this->startCodeStreamView = stream;
+  pDecFeeder->startCodeStreamView = stream;
   AL_TCircMetaData* pMeta = AL_CircMetaData_Create(0, 0, false);
 
   if(!pMeta)
     goto fail_;
 
-  if(!AL_Buffer_AddMetaData(this->startCodeStreamView, (AL_TMetaData*)pMeta))
+  if(!AL_Buffer_AddMetaData(pDecFeeder->startCodeStreamView, (AL_TMetaData*)pMeta))
   {
     Rtos_Free(pMeta);
     goto fail_;
   }
 
-  this->incomingWorkSem = Rtos_CreateSemaphore(0);
+  pDecFeeder->incomingWorkSem = Rtos_CreateSemaphore(0);
 
-  if(!this->incomingWorkSem)
+  if(!pDecFeeder->incomingWorkSem)
     goto fail_;
 
-  this->keepGoing = 1;
-  this->decoderHasBeenFlushed = false;
-  this->endWithAccessUnit = true;
-  this->hDec = hDec;
+  pDecFeeder->keepGoing = 1;
+  pDecFeeder->decoderHasBeenFlushed = false;
+  pDecFeeder->endWithAccessUnit = true;
+  pDecFeeder->hDec = hDec;
 
-  if(!CreateSlave(this))
+  if(!CreateSlave(pDecFeeder))
     goto cleanup;
 
-  return this;
+  return pDecFeeder;
 
   cleanup:
-  Rtos_DeleteSemaphore(this->incomingWorkSem);
+  Rtos_DeleteSemaphore(pDecFeeder->incomingWorkSem);
   fail_:
-  Rtos_Free(this);
+  Rtos_Free(pDecFeeder);
   return NULL;
 }
 
