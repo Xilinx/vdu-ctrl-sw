@@ -11,6 +11,7 @@
 #include <map>
 #include <sstream>
 #include <string>
+#include <cstdint>
 #include <stdexcept>
 #include <sstream>
 #include <vector>

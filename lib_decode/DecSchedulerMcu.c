@@ -36,7 +36,7 @@
 #include "lib_common/List.h"
 #include "lib_common/Error.h"
 #include "lib_assert/al_assert.h"
-#include "lib_scheduler_dec/SchedulerInfo.h"
+#include "lib_common_dec/SchedulerInfo.h"
 
 #define DCACHE_OFFSET 0x80000000
 
@@ -178,7 +178,7 @@ static void setChannelMsg(struct al5_params* msg, TMemDesc const* pMDChParams)
   static_assert(sizeof(uVirtAddr) <= sizeof(msg->opaque), "Driver channel_param struct is too small");
   msg->size = sizeof(uVirtAddr);
 
-  uVirtAddr = (pMDChParams->uPhysicalAddr & 0x7FFFFFFF)+ DCACHE_OFFSET;
+  uVirtAddr = (pMDChParams->uPhysicalAddr & 0x7FFFFFFF) + DCACHE_OFFSET;
   Rtos_Memcpy(msg->opaque, &uVirtAddr, msg->size);
 }
 

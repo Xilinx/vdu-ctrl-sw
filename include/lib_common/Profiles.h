@@ -28,7 +28,7 @@
 #define HEVC_PROFILE_IDC_RExt 4
 
 /****************************************************************************/
-typedef enum AL_e_Codec
+typedef enum
 {
   /* assign hardware standard value */
   AL_CODEC_AVC = 0,
@@ -39,13 +39,14 @@ typedef enum AL_e_Codec
   AL_CODEC_VVC = 5,
   AL_CODEC_MPEG2 = 6,
   AL_CODEC_AVC_I = 7,
+  AL_CODEC_LCEVC = 8,
   AL_CODEC_INVALID, /* sentinel */
 }AL_ECodec;
 
 /*************************************************************************//*!
    \brief Profiles identifier
 *****************************************************************************/
-typedef enum __AL_ALIGNED__ (4) AL_e_Profile
+typedef enum
 {
   AL_PROFILE_AVC = (AL_CODEC_AVC << 24),
   AL_PROFILE_AVC_CAVLC_444_INTRA = AL_PROFILE_AVC | AVC_PROFILE_IDC_CAVLC_444_INTRA, // not supported
@@ -103,7 +104,7 @@ typedef enum __AL_ALIGNED__ (4) AL_e_Profile
   AL_PROFILE_HEVC_MAIN_444_16_STILL = AL_PROFILE_HEVC_RExt | AL_RExt_FLAGS(0x0300), // not supported
 
   AL_PROFILE_UNKNOWN = ~0,
-} AL_EProfile;
+}AL_EProfile;
 
 /****************************************************************************/
 #define AL_MAKE_PROFILE(Codec, Idc, Flags) ((AL_EProfile)(((Codec) << 24) | ((Flags) << 8) | (Idc)))
@@ -127,9 +128,13 @@ static inline int AL_GET_PROFILE_IDC(AL_EProfile eProfile)
 /****************************************************************************/
 static inline bool AL_HAS_LEVEL(AL_EProfile eProfile)
 {
-  AL_ECodec eCodec = AL_GET_CODEC(eProfile);
+  AL_ECodec const eCodec = AL_GET_CODEC(eProfile);
   switch(eCodec)
   {
+  case AL_CODEC_AVC: return true;
+  case AL_CODEC_HEVC: return true;
+  case AL_CODEC_VVC: return true;
+  case AL_CODEC_AV1: return true;
   default: return false;
   }
 }
@@ -137,17 +142,13 @@ static inline bool AL_HAS_LEVEL(AL_EProfile eProfile)
 /****************************************************************************/
 static inline bool AL_IS_VP9(AL_EProfile eProfile)
 {
-  (void)eProfile;
-  bool bIsCodecVP9 = false;
-  return bIsCodecVP9;
+  return AL_GET_CODEC(eProfile) == AL_CODEC_VP9;
 }
 
 /****************************************************************************/
 static inline bool AL_IS_AV1(AL_EProfile eProfile)
 {
-  (void)eProfile;
-  bool bIsCodecAV1 = false;
-  return bIsCodecAV1;
+  return AL_GET_CODEC(eProfile) == AL_CODEC_AV1;
 }
 
 /****************************************************************************/
@@ -177,9 +178,7 @@ static inline bool AL_IS_LIB_MVD_CODEC(AL_ECodec eCodec)
 /****************************************************************************/
 static inline bool AL_IS_JPEG(AL_EProfile eProfile)
 {
-  (void)eProfile;
-  bool bIsCodecJPEG = false;
-  return bIsCodecJPEG;
+  return AL_GET_CODEC(eProfile) == AL_CODEC_JPEG;
 }
 
 /****************************************************************************/
@@ -194,11 +193,6 @@ static inline bool AL_IS_HEVC(AL_EProfile eProfile)
   return AL_GET_CODEC(eProfile) == AL_CODEC_HEVC;
 }
 
-static inline bool AL_IS_ITU(AL_EProfile eProfile)
-{
-  return AL_IS_AVC(eProfile) || AL_IS_HEVC(eProfile);
-}
-
 /****************************************************************************/
 static inline bool AL_IS_VVC(AL_EProfile eProfile)
 {
@@ -208,21 +202,22 @@ static inline bool AL_IS_VVC(AL_EProfile eProfile)
 /****************************************************************************/
 static inline bool AL_IS_ITU_CODEC(AL_ECodec eCodec)
 {
-  (void)eCodec;
-  bool bIsAVC = false;
-  bool bIsHEVC = false;
-  bool bIsVVC = false;
-  bIsAVC = ((eCodec) == AL_CODEC_AVC);
-  bIsHEVC = ((eCodec) == AL_CODEC_HEVC);
+  bool const bIsAVC = eCodec == AL_CODEC_AVC;
+  bool const bIsHEVC = eCodec == AL_CODEC_HEVC;
+  bool const bIsVVC = eCodec == AL_CODEC_VVC;
   return bIsAVC || bIsHEVC || bIsVVC;
+}
+
+/****************************************************************************/
+static inline bool AL_IS_ITU(AL_EProfile eProfile)
+{
+  return AL_IS_ITU_CODEC(AL_GET_CODEC(eProfile));
 }
 
 /****************************************************************************/
 static inline bool AL_IS_JPEG_CODEC(AL_ECodec eCodec)
 {
-  (void)eCodec;
-  bool bIsJpeg = false;
-  return bIsJpeg;
+  return eCodec == AL_CODEC_JPEG;
 }
 
 /****************************************************************************/

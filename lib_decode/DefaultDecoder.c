@@ -13,7 +13,8 @@
 
 #include "DefaultDecoder.h"
 #include "NalUnitParser.h"
-#include "lib_decode/InternalError.h"
+#include "lib_common/BufferAPI.h"
+#include "lib_common_dec/InternalError.h"
 #include "NalUnitParserPrivate.h"
 #include "UnsplitBufferFeeder.h"
 #include "SplitBufferFeeder.h"
@@ -60,6 +61,17 @@
       pTraceHooks->SetActiveWorker(pTraceHooks->pUserParam, unit, coreId, modId); \
   } while(0) \
 
+#define BeginTraces(pTraceHooks) \
+  do { \
+    if(pTraceHooks && pTraceHooks->BeginTraces) \
+      pTraceHooks->BeginTraces(pTraceHooks->pUserParam); \
+  } while(0) \
+
+#define EndTraces(pTraceHooks) \
+  do { \
+    if(pTraceHooks && pTraceHooks->EndTraces) \
+      pTraceHooks->EndTraces(pTraceHooks->pUserParam); \
+  } while(0) \
 
 static int const LAST_VCL_NAL_IN_AU_NOT_PRESENT = -1;
 
@@ -151,7 +163,7 @@ static bool isSubframeUnit(AL_EDecUnit eDecUnit)
 /*****************************************************************************/
 static void AL_sDecoder_CallEndParsing(AL_TDecCtx* pCtx, AL_TBuffer* pParsedFrame, int iParsingID)
 {
-  AL_THandleMetaData* pHandlesMeta = (AL_THandleMetaData*)AL_Buffer_GetMetaData(pParsedFrame, AL_META_TYPE_HANDLE);
+  AL_THandleMetaData const* pHandlesMeta = (AL_THandleMetaData const*)AL_Buffer_GetMetaData(pParsedFrame, AL_META_TYPE_HANDLE);
 
   if(!pHandlesMeta)
   {
@@ -174,11 +186,13 @@ static void AL_sDecoder_CallEndParsing(AL_TDecCtx* pCtx, AL_TBuffer* pParsedFram
   if(pDecMetaHandle->eState == AL_DEC_HANDLE_STATE_PROCESSING)
   {
     AL_TBuffer* pStream = pDecMetaHandle->pHandle;
+    AL_Buffer_Ref(pStream);
     pDecMetaHandle->eState = AL_DEC_HANDLE_STATE_PROCESSED;
 
     if(pCtx->tDecCB.endParsingCB.func)
       pCtx->tDecCB.endParsingCB.func(pParsedFrame, pCtx->tDecCB.endParsingCB.userParam, iParsingID);
     AL_Feeder_FreeBuf(pCtx->Feeder, pStream);
+    AL_Buffer_Unref(pStream);
   }
 }
 
@@ -203,7 +217,9 @@ static void AL_sDecoder_CallDecode(AL_TDecCtx* pCtx, int iFrameID)
 
       if(pDecMetaHandle->eState == AL_DEC_HANDLE_STATE_PROCESSING)
       {
+        AL_Buffer_Ref(pStream);
         AL_Feeder_FreeBuf(pCtx->Feeder, pStream);
+        AL_Buffer_Unref(pStream);
       }
     }
   }
@@ -850,8 +866,10 @@ static AL_TSeiMetaData* GetSeiMetaData(AL_TDecCtx* pCtx)
 }
 
 /*****************************************************************************/
-bool AL_DecodeOneNal(AL_TAup* pAUP, AL_TDecCtx* pCtx, AL_ENut nut, bool bIsLastAUNal, int* iNumSlice)
+bool AL_DecodeOneNal(AL_TAup* pAUP, AL_TDecCtx* pCtx, AL_ENut nut, uint32_t uNutSize, bool bIsLastAUNal, int* iNumSlice)
 {
+  (void)uNutSize;
+
   if(pCtx->parser.isNutError(nut))
     return false;
 
@@ -918,11 +936,28 @@ bool AL_DecodeOneNal(AL_TAup* pAUP, AL_TDecCtx* pCtx, AL_ENut nut, bool bIsLastA
     CheckNALParserResult(pCtx, eParserResult);
   }
 
-  if((nut == nuts.apsPrefix || nut == nuts.apsSuffix) && parser.parseAps)
+  if((nut == nuts.apsPrefix) || (nut == nuts.apsSuffix))
   {
-    AL_TRbspParser rp = getParserOnNonVclNalInternalBuf(pCtx);
-    AL_PARSE_RESULT eParserResult = parser.parseAps(pAUP, &rp, pCtx);
-    CheckNALParserResult(pCtx, eParserResult);
+    if(parser.parseAps)
+    {
+      AL_TRbspParser rp = getParserOnNonVclNalInternalBuf(pCtx);
+      AL_PARSE_RESULT eParserResult = parser.parseAps(pAUP, &rp, pCtx);
+      CheckNALParserResult(pCtx, eParserResult);
+    }
+
+    // In split-input, apsSuffix is a non-reorderable delimiter,
+    // we need to ensure that previous NAL is launched
+    if((pCtx->eInputMode == AL_DEC_SPLIT_INPUT) && (nut == nuts.apsSuffix))
+    {
+      if(pCtx->bFirstIsValid && pCtx->tCurrentFrameCtx.bFirstSliceValid)
+      {
+        parser.finishPendingRequest(pCtx);
+        pCtx->bIsFirstPicture = true;
+        pCtx->tConceal.bSkipRemainingNals = true;
+        return true;
+      }
+      pCtx->bIsFirstPicture = true;
+    }
   }
 
   if(nut == nuts.ph && parser.parsePh)
@@ -932,9 +967,11 @@ bool AL_DecodeOneNal(AL_TAup* pAUP, AL_TDecCtx* pCtx, AL_ENut nut, bool bIsLastA
     CheckNALParserResult(pCtx, eParserResult);
   }
 
-  if((nut == nuts.eos) || (nut == nuts.eob))
+  // In split-input, filler data is a non-reorderable delimiter,
+  // we need to ensure that previous NAL is launched
+  if((nut == nuts.eos) || (nut == nuts.eob) || ((pCtx->eInputMode == AL_DEC_SPLIT_INPUT) && (nut == nuts.fd)))
   {
-    if(pCtx->bFirstIsValid && pCtx->bFirstSliceInFrameIsValid)
+    if(pCtx->bFirstIsValid && pCtx->tCurrentFrameCtx.bFirstSliceValid)
     {
       parser.finishPendingRequest(pCtx);
       pCtx->bIsFirstPicture = true;
@@ -952,10 +989,10 @@ bool AL_DecodeOneNal(AL_TAup* pAUP, AL_TDecCtx* pCtx, AL_ENut nut, bool bIsLastA
 /*****************************************************************************/
 static bool DecodeOneNAL(AL_TDecCtx* pCtx, AL_TNal* pNal, int* pNumSlice, bool bIsLastVclNal)
 {
-  if(pCtx->PictMngr.uNumSlice > 0 && *pNumSlice > pCtx->pChanParam->iMaxSlices)
+  if(pCtx->tCurrentFrameCtx.uNumSlice > 0 && *pNumSlice > pCtx->pChanParam->iMaxSlices)
     return false;
 
-  return AL_DecodeOneNal(&pCtx->aup, pCtx, pNal->tStartCode.uNUT, bIsLastVclNal, pNumSlice);
+  return AL_DecodeOneNal(&pCtx->aup, pCtx, pNal->tStartCode.uNUT, pNal->uSize, bIsLastVclNal, pNumSlice);
 
   (void)pNal;
   (void)bIsLastVclNal;
@@ -1094,6 +1131,7 @@ static int FindNextDecodingUnit(AL_TDecCtx* pCtx, AL_TBuffer* pStream, int* iLas
 
   while(!SearchNextDecodingUnit(pCtx, pStream, &iLastStartCodeIdx, iLastVclNalInAU))
   {
+
     if(!canStoreMoreStartCodes(pCtx))
     {
       // The start code table is full and doesn't contain any AU.
@@ -1173,11 +1211,9 @@ static void ConsumeNals(AL_TDecCtx* pCtx, int iNumNal)
 }
 
 /*****************************************************************************/
-static void ResetValidFlags(AL_TDecCtx* pCtx)
+static void ResetCurrentFrameFlags(AL_TDecCtx* pCtx)
 {
-  pCtx->bFirstSliceInFrameIsValid = false;
-  pCtx->bBeginFrameIsValid = false;
-
+  AL_DecFrameCtx_ResetFlags(&pCtx->tCurrentFrameCtx);
 }
 
 /*****************************************************************************/
@@ -1276,7 +1312,7 @@ static UNIT_ERROR DecodeOneUnit(AL_TDecCtx* pCtx, AL_TBuffer* pStream, int iNalC
   pCtx->Stream.tMD.hAllocBuf = pStream->hBufs[0];
   pCtx->Stream.tMD.pVirtualAddr = AL_Buffer_GetData(pStream);
   pCtx->Stream.tMD.uPhysicalAddr = AL_Buffer_GetPhysicalAddress(pStream);
-  AL_TCircMetaData* pMeta = (AL_TCircMetaData*)AL_Buffer_GetMetaData(pStream, AL_META_TYPE_CIRCULAR);
+  AL_TCircMetaData const* pMeta = (AL_TCircMetaData const*)AL_Buffer_GetMetaData(pStream, AL_META_TYPE_CIRCULAR);
 
   int iNumSlice = 0;
   bool bIsEndOfFrame = false;
@@ -1291,7 +1327,7 @@ static UNIT_ERROR DecodeOneUnit(AL_TDecCtx* pCtx, AL_TBuffer* pStream, int iNalC
   // We reorder the sei nal to parse them before the non vcl suffix
   // (This assume they do not change the vcl parsing / decoding process)
   //
-  // We do not reorder the filler data suffix because in split input,
+  // We do not reorder the filler data suffix or aps suffix because in split input,
   // it is used like an eos / eob and it would affect the parsing / decoding process
   // and we do not use the stream in that case.
   uint32_t const StartCodeDataEnd = pMeta->iOffset;
@@ -1341,12 +1377,12 @@ static UNIT_ERROR DecodeOneUnit(AL_TDecCtx* pCtx, AL_TBuffer* pStream, int iNalC
       return ERR_UNIT_DYNAMIC_ALLOC;
 
     if(bIsLastVclNal)
-      ResetValidFlags(pCtx);
+      ResetCurrentFrameFlags(pCtx);
 
     if(pCtx->eChanState == CHAN_DESTROYING)
     {
       ConsumeNals(pCtx, iNalCount);
-      ResetValidFlags(pCtx);
+      ResetCurrentFrameFlags(pCtx);
       return ERR_UNIT_FAILED;
     }
   }
@@ -1427,7 +1463,7 @@ bool AL_Default_Decoder_PushBuffer(AL_TDecoder* pAbsDec, AL_TBuffer* pBuf, size_
 {
   uint8_t uFlags = AL_STREAM_BUF_FLAG_UNKNOWN;
 
-  AL_TStreamMetaData* pStreamMeta = (AL_TStreamMetaData*)AL_Buffer_GetMetaData(pBuf, AL_META_TYPE_STREAM);
+  AL_TStreamMetaData const* pStreamMeta = (AL_TStreamMetaData const*)AL_Buffer_GetMetaData(pBuf, AL_META_TYPE_STREAM);
 
   if(pStreamMeta != NULL)
   {
@@ -1466,7 +1502,7 @@ void AL_Default_Decoder_WaitFrameSent(AL_TDecoder* pAbsDec, uint32_t uStreamOffs
 /*****************************************************************************/
 bool AL_Default_Decoder_HasOngoingFrame(AL_TDecCtx* pCtx)
 {
-  return pCtx->bFirstIsValid && pCtx->bFirstSliceInFrameIsValid;
+  return pCtx->bFirstIsValid && pCtx->tCurrentFrameCtx.bFirstSliceValid;
 }
 
 /*****************************************************************************/
@@ -1611,7 +1647,7 @@ AL_ERR AL_Default_Decoder_GetLastError(AL_TDecoder* pAbsDec)
 }
 
 /*****************************************************************************/
-AL_ERR AL_Default_Decoder_GetFrameError(AL_TDecoder* pAbsDec, AL_TBuffer* pBuf)
+AL_ERR AL_Default_Decoder_GetFrameError(AL_TDecoder* pAbsDec, AL_TBuffer const* pBuf)
 {
   AL_TDecoder* pDec = (AL_TDecoder*)pAbsDec;
   AL_TDecCtx* pCtx = &pDec->ctx;
@@ -1639,7 +1675,7 @@ bool AL_Default_Decoder_PreallocateBuffers(AL_TDecoder* pAbsDec)
   if(!CheckStreamSettings(pStreamSettings))
     return false;
 
-  int iSPSMaxSlices = RoundUp(pCtx->pChanParam->iHeight, 16) / 16;
+  int iSPSMaxSlices = RoundUp(pCtx->tStreamSettings.tDim.iHeight, 16) / 16;
 
   if(isAVC(pCtx->pChanParam->eCodec))
     iSPSMaxSlices = AL_AVC_GetMaxNumberOfSlices(pStreamSettings->eProfile, pStreamSettings->iLevel,
@@ -1687,9 +1723,10 @@ bool AL_Default_Decoder_PreallocateBuffers(AL_TDecoder* pAbsDec)
   }
 
   int iSizePOC = POCBUFF_PL_SIZE;
-
-  if(!AL_Default_Decoder_AllocMv(pCtx, iSizeMV, iSizePOC, iMaxBuf))
-    goto fail_alloc;
+  {
+    if(!AL_Default_Decoder_AllocMv(pCtx, iSizeMV, iSizePOC, iMaxBuf))
+      goto fail_alloc;
+  }
 
   AL_TPictMngrParam tPictMngrParam =
   {
@@ -1699,7 +1736,8 @@ bool AL_Default_Decoder_PreallocateBuffers(AL_TDecoder* pAbsDec)
     pCtx->tOutputPosition,
   };
 
-  AL_PictMngr_Init(&pCtx->PictMngr, &tPictMngrParam);
+  if(!AL_PictMngr_Init(&pCtx->PictMngr, &tPictMngrParam))
+    goto fail_alloc;
 
   bool bEnableDisplayCompression;
   AL_EFbStorageMode const eDisplayStorageMode = AL_Default_Decoder_GetDisplayStorageMode(pCtx, pStreamSettings->iBitDepth, &bEnableDisplayCompression);
@@ -1828,7 +1866,6 @@ static void AssignSettings(AL_TDecCtx* pCtx, AL_TDecSettings const* pSettings)
   pCtx->eDpbMode = pSettings->eDpbMode;
   pCtx->tStreamSettings = pSettings->tStream;
   pCtx->bUseIFramesAsSyncPoint = pSettings->bUseIFramesAsSyncPoint;
-  pCtx->bIsIFrame = pSettings->tStream.bDecodeIntraOnly;
 
   AL_TDecChanParam* pChan = pCtx->pChanParam;
   pChan->uMaxLatency = pSettings->iStackSize;
@@ -1895,26 +1932,26 @@ bool AL_Default_Decoder_AllocPool(AL_TDecCtx* pCtx, int iALFSize, int iLmcsSize,
   // Alloc Decoder buffers
   for(int i = 0; i < iPoolSize; ++i)
   {
-    SAFE_POOL_ALLOC(pCtx, &pCtx->PoolListRefAddr[i].tMD, uRefListSize, "reflist");
-    SAFE_POOL_ALLOC(pCtx, &pCtx->PoolSclLst[i].tMD, SCLST_SIZE_DEC, "scllst");
-    AL_CleanupMemory(pCtx->PoolSclLst[i].tMD.pVirtualAddr, pCtx->PoolSclLst[i].tMD.uSize);
-
     Rtos_Memset(&pCtx->PoolPP[i], 0, sizeof(pCtx->PoolPP[0]));
     Rtos_Memset(&pCtx->PoolPB[i], 0, sizeof(pCtx->PoolPB[0]));
     AL_SET_DEC_OPT(&pCtx->PoolPP[i], IntraOnly, 1);
-  }
-
-  for(int i = 0; i < iPoolSize; ++i)
-  {
-    if(!pCtx->bIntraOnlyProfile)
-    {
-      SAFE_POOL_ALLOC(pCtx, &pCtx->PoolWP[i].tMD, iWPSize, "wp");
-      AL_CleanupMemory(pCtx->PoolWP[i].tMD.pVirtualAddr, pCtx->PoolWP[i].tMD.uSize);
-    }
     SAFE_POOL_ALLOC(pCtx, &pCtx->PoolSP[i].tMD, iSPSize, "sp");
+
+    if(isITU(eCodec))
     {
-      SAFE_POOL_ALLOC(pCtx, &pCtx->PoolCompData[i].tMD, iCompDataSize, "comp data");
-      SAFE_POOL_ALLOC(pCtx, &pCtx->PoolCompMap[i].tMD, iCompMapSize, "comp map");
+      SAFE_POOL_ALLOC(pCtx, &pCtx->PoolListRefAddr[i].tMD, uRefListSize, "reflist");
+      SAFE_POOL_ALLOC(pCtx, &pCtx->PoolSclLst[i].tMD, SCLST_SIZE_DEC, "scllst");
+      AL_CleanupMemory(pCtx->PoolSclLst[i].tMD.pVirtualAddr, pCtx->PoolSclLst[i].tMD.uSize);
+
+      if(!pCtx->bIntraOnlyProfile)
+      {
+        SAFE_POOL_ALLOC(pCtx, &pCtx->PoolWP[i].tMD, iWPSize, "wp");
+        AL_CleanupMemory(pCtx->PoolWP[i].tMD.pVirtualAddr, pCtx->PoolWP[i].tMD.uSize);
+      }
+      {
+        SAFE_POOL_ALLOC(pCtx, &pCtx->PoolCompData[i].tMD, iCompDataSize, "comp data");
+        SAFE_POOL_ALLOC(pCtx, &pCtx->PoolCompMap[i].tMD, iCompMapSize, "comp map");
+      }
     }
   }
 
@@ -2015,6 +2052,8 @@ AL_ERR AL_CreateDefaultDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler,
   pCtx->pChanParam = (AL_TDecChanParam*)pCtx->tMDChanParam.pVirtualAddr;
   Rtos_Memset(pCtx->pChanParam, 0, sizeof(*pCtx->pChanParam));
 
+  AL_DecFrameCtx_Reset(&pCtx->tCurrentFrameCtx);
+
   AssignSettings(pCtx, pSettings);
   AssignCallBacks(pCtx, pCB);
 
@@ -2030,8 +2069,6 @@ AL_ERR AL_CreateDefaultDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler,
   pCtx->bFirstIsValid = false;
   pCtx->uNoRaslOutputFlag = 1;
   pCtx->bIsFirstPicture = true;
-  pCtx->bFirstSliceInFrameIsValid = false;
-  pCtx->bBeginFrameIsValid = false;
   pCtx->bIsFirstSPSChecked = false;
   pCtx->bIsBuffersAllocated = false;
   pCtx->uNumSC = 0;
@@ -2047,10 +2084,6 @@ AL_ERR AL_CreateDefaultDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler,
   pCtx->iCurNalStreamOffset = 0;
   pCtx->iTraceCounter = 0;
   pCtx->eChanState = CHAN_UNINITIALIZED;
-
-  // initialize tile information
-  pCtx->uCurTileID = 0;
-  pCtx->bTileSupToSlice = false;
 
   // initialize slice toggle information
   pCtx->uCurID = 0;
