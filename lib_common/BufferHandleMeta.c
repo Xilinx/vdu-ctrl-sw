@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_common/BufferHandleMeta.h"
@@ -139,4 +139,3 @@ int AL_HandleMetaData_GetNumHandles(AL_THandleMetaData const* pMeta)
   Rtos_ReleaseMutex(pMeta->pInternal->mutex);
   return numHandles;
 }
-

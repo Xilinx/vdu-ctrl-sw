@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /****************************************************************************
@@ -40,4 +40,3 @@ typedef AL_INTROSPECT (category = "debug") struct t_YUVFileInfo
 }TYUVFileInfo;
 
 /*@}*/
-

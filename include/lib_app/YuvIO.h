@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -40,4 +40,3 @@ int GetFileSize(std::ifstream& File);
 void ComputeMd5SumFrame(AL_TBuffer* pYUV, CMD5& pMD5);
 
 /*****************************************************************************/
-

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -31,4 +31,3 @@ void AL_WorkPool_PushBack(WorkPool* pool, AL_TBuffer* pBuf);
 bool AL_WorkPool_IsEmpty(WorkPool* pool); /* Not thread safe */
 bool AL_WorkPool_IsFull(WorkPool* pool);  /* Not thread safe */
 int AL_WorkPool_GetSize(WorkPool* pool);  /* Not thread safe */
-

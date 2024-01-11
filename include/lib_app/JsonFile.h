@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -115,4 +115,3 @@ TJsonValue & TJsonValue::AddValue(const std::string& sKey, T tValue)
   objectValue[sKey] = TJsonValue(tValue);
   return objectValue[sKey];
 }
-

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /**************************************************************************//*!
@@ -46,7 +46,7 @@ typedef enum AL_e_PlaneId
 /*************************************************************************//*!
    \brief Plane parameters
 *****************************************************************************/
-typedef struct AL_t_PlaneDescription
+typedef struct AL_TPlaneDescription
 {
   AL_EPlaneId ePlaneId; /*!< Type of plane */
   int iOffset;          /*!< Offset of the plane from beginning of the buffer (in bytes) */
@@ -105,4 +105,3 @@ int AL_Plane_GetBufferPlanes(AL_EChromaOrder eChromaOrder, bool bIsCompressed, A
 bool AL_Plane_Exists(AL_EChromaOrder eChromaOrder, bool bIsCompressed, AL_EPlaneId ePlaneId);
 
 /*@}*/
-

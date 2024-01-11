@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -49,4 +49,3 @@ typedef struct
 /*****************************************************************************/
 void sei_get_uuid_iso_iec_11578(AL_TRbspParser* pRP, uint8_t* uuid);
 bool ParseSeiHeader(AL_TRbspParser* pRP, SeiParserCB* pCB);
-

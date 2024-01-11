@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_decode/WorkPool.h"
@@ -156,4 +156,3 @@ int AL_WorkPool_GetSize(WorkPool* pool)
 
   return iCnt;
 }
-

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "SeiParser.h"
@@ -455,4 +455,3 @@ bool ParseSeiHeader(AL_TRbspParser* pRP, SeiParserCB* pCB)
 
   return true;
 }
-

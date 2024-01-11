@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 /****************************************************************************
@@ -48,4 +48,3 @@ static uint8_t const SEI_PREFIX_USER_DATA_UNREGISTERED_UUID[16] =
 };
 
 /*@}*/
-

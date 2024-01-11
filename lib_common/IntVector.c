@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "IntVector.h"
@@ -65,4 +65,3 @@ void IntVector_Copy(IntVector const* from, IntVector* to)
   for(int i = 0; i < from->count; i++)
     to->elements[i] = from->elements[i];
 }
-

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "HevcParser.h"
@@ -964,4 +964,3 @@ AL_TCropInfo AL_HEVC_GetCropInfo(AL_THevcSps const* pSPS)
 
   return cropInfo;
 }
-

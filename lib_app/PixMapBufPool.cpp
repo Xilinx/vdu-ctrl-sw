@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_app/PixMapBufPool.h"
@@ -38,4 +38,3 @@ bool PixMapBufPool::Init(AL_TAllocator* pAllocator, uint32_t uNumBuf, std::strin
   this->sName = sName;
   return BaseBufPool::Init(pAllocator, uNumBuf);
 }
-

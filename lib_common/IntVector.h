@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -27,4 +27,3 @@ void IntVector_Copy(IntVector const* from, IntVector* to);
 #define VECTOR_FOREACH(iterator, v) \
   AL_Assert((v).count <= MAX_ELEMENTS); \
   for(int i = 0, iterator = (v).elements[0]; i < (v).count; i++, iterator = (v).elements[Min(i, MAX_ELEMENTS - 1)])
-

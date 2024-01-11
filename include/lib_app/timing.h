@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -18,4 +18,3 @@ inline void Sleep(int ms)
 {
   std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }
-

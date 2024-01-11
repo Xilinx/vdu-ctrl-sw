@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2023 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_common/Error.h"
@@ -56,4 +56,3 @@ const char* AL_Codec_ErrorToString(AL_ERR eErrorCode)
   default: return "Unknown error";
   }
 }
-
