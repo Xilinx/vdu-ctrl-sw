@@ -7,6 +7,8 @@
 #include <memory>
 #include <set>
 #include <cassert>
+#include <dirent.h>
+#include <cstring>
 
 #include "IpDevice.h"
 #include "IpDeviceCommon.h"
@@ -68,13 +70,45 @@ CIpDevice::~CIpDevice()
     AL_Allocator_Destroy(m_pAllocator);
 }
 
+const char* decDevice = "allegroDecodeIP";
+
+int CountIPDevices()
+{
+    DIR* devPath = opendir("/dev");
+
+    if (devPath == nullptr) {
+        throw std::runtime_error("Error: could not open directory");
+    }
+
+    struct dirent* entry;
+    int count = 0;
+
+    while ((entry = readdir(devPath)) != nullptr) {
+        if (std::strncmp(entry->d_name, decDevice, sizeof(decDevice) - 1) == 0) {
+            ++count;
+        }
+    }
+
+    closedir(devPath);
+
+    return count;
+}
+
+
 static std::string SelectMcuDevice(std::set<std::string> const& tDevices, bool bSelectDeviceWithLowestAvailableResources)
 {
   std::string best_device;
   int32_t selected_resources = bSelectDeviceWithLowestAvailableResources ? INT32_MAX : -1;
 
+  int numDevices = CountIPDevices();
+  int nDeviceIndex = 0;
+
   for(auto const& device : tDevices)
   {
+    if (nDeviceIndex >= numDevices){
+        break;
+    }
+
     AL_IDecScheduler* scheduler = AL_DecSchedulerMcu_Create(AL_GetHardwareDriver(), device.c_str());
 
     if(scheduler == nullptr)
@@ -104,6 +138,7 @@ static std::string SelectMcuDevice(std::set<std::string> const& tDevices, bool b
       }
     }
 
+    nDeviceIndex++;
     AL_IDecScheduler_Destroy(scheduler);
   }
 
