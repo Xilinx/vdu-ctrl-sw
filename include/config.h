@@ -13,6 +13,9 @@
 #ifndef HW_IP_BURST_ALIGNMENT
 #define HW_IP_BURST_ALIGNMENT 32
 #endif
+#ifndef AL_DEC_PITCH_ALIGNMENT
+#define AL_DEC_PITCH_ALIGNMENT 256
+#endif
 #ifndef AL_MAX_ENC_SLICE
 #define AL_MAX_ENC_SLICE 200
 #endif
@@ -29,5 +32,5 @@
 
 #define AL_CONFIGURE_COMMANDLINE "./configure --config-blob customers/XilinxVDU/config.ini"
 #define AL_VERSION_MAJOR 0
-#define AL_VERSION_MINOR 40
+#define AL_VERSION_MINOR 42
 #define AL_VERSION_PATCH 0

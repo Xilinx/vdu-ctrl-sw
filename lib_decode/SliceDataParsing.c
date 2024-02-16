@@ -11,12 +11,14 @@
 
 #include "SliceDataParsing.h"
 #include "I_DecoderCtx.h"
+#include "NalUnitParser.h"
 
 #include "lib_decode/lib_decode.h"
 #include "lib_decode/I_DecScheduler.h"
 
 #include "lib_common/PixMapBufferInternal.h"
 #include "lib_common/BufferHandleMeta.h"
+#include "lib_common/BufferAPIInternal.h"
 
 #include "lib_common_dec/RbspParser.h"
 
@@ -62,7 +64,7 @@ static void AL_sSaveCommandBlk2(AL_TDecCtx* pCtx, AL_TDecPicParam const* pPP, AL
 {
   (void)pPP;
 
-  AL_TStreamSettings const* pStreamSettings = &pCtx->tStreamSettings;
+  AL_TStreamSettings const* pStreamSettings = &pCtx->tInitialStreamSettings;
   int const iMaxBitDepth = pStreamSettings->iBitDepth;
   AL_TBuffer* pRec = pCtx->pRecs.pFrame;
 
@@ -89,9 +91,9 @@ static void AL_sSaveCommandBlk2(AL_TDecCtx* pCtx, AL_TDecPicParam const* pPP, AL
   pBufs->uPitch = uPitch | uPictureBitDepth;
 
   TFourCC tFourCC = AL_PixMapBuffer_GetFourCC(pRec);
-  AL_EChromaOrder eChromaOrder = AL_GetChromaOrder(tFourCC);
+  AL_EPlaneMode ePlaneMode = AL_GetPlaneMode(tFourCC);
 
-  AL_EPlaneId eFirstCPlane = eChromaOrder == AL_C_ORDER_U_V ? AL_PLANE_U : AL_PLANE_UV;
+  AL_EPlaneId eFirstCPlane = AL_PLANE_MODE_PLANAR == ePlaneMode ? AL_PLANE_U : AL_PLANE_UV;
   pBufs->tRecY.tMD.uPhysicalAddr = AL_PixMapBuffer_GetPlanePhysicalAddress(pRec, AL_PLANE_Y);
   pBufs->tRecY.tMD.pVirtualAddr = AL_PixMapBuffer_GetPlaneAddress(pRec, AL_PLANE_Y);
   pBufs->tRecC1.tMD.uPhysicalAddr = AL_PixMapBuffer_GetPlanePhysicalAddress(pRec, eFirstCPlane);
@@ -302,11 +304,11 @@ static void AL_InitRefBuffers(AL_TDecCtx* pCtx, AL_TDecPicBuffers* pBufs)
 }
 
 /*****************************************************************************/
-bool AL_InitFrameBuffers(AL_TDecCtx* pCtx, AL_TDecPicBuffers* pBufs, bool bStartsNewCVS, AL_TDimension tDim, AL_EChromaMode eChromaMode, AL_TDecPicParam* pPP)
+bool AL_InitFrameBuffers(AL_TDecCtx* pCtx, AL_TDecPicBuffers* pBufs, bool bStartsNewCVS, AL_TDimension tDim, AL_EChromaMode eDecodedChromaMode, AL_TDecPicParam* pPP)
 {
   Rtos_GetSemaphore(pCtx->Sem, AL_WAIT_FOREVER);
 
-  if(!AL_PictMngr_BeginFrame(&pCtx->PictMngr, bStartsNewCVS, tDim, eChromaMode))
+  if(!AL_PictMngr_BeginFrame(&pCtx->PictMngr, bStartsNewCVS, tDim, eDecodedChromaMode))
   {
     pCtx->eChanState = CHAN_DESTROYING;
     Rtos_ReleaseSemaphore(pCtx->Sem);
@@ -350,9 +352,8 @@ void AL_SetConcealParameters(AL_TDecCtx* pCtx, AL_TDecSliceParam* pSP)
 }
 
 /*****************************************************************************/
-void AL_TerminatePreviousCommand(AL_TDecCtx* pCtx, AL_TDecPicParam const* pPP, AL_TDecSliceParam* pSP, bool bIsLastVclNalInAU, bool bNextIsDependent)
+void AL_TerminatePreviousCommand(AL_TDecCtx* pCtx, AL_TDecPicParam const* pPP, AL_TDecSliceParam* pSP, AL_TDecPicBuffers* pBufs, bool bIsLastVclNalInAU, bool bNextIsDependent)
 {
-  AL_TDecPicBuffers* pBufs = &pCtx->PoolPB[pCtx->uToggle];
   AL_sSaveCommandBlk2(pCtx, pPP, pBufs);
 
   if(pCtx->tCurrentFrameCtx.uNumSlice == 0)
@@ -403,7 +404,7 @@ void AL_AVC_PrepareCommand(AL_TDecCtx* pCtx, AL_TScl* pSCL, AL_TDecPicParam* pPP
 
   if(pPrevSP && !bIsValid && bIsLastVclNalInAU)
   {
-    AL_TerminatePreviousCommand(pCtx, pPP, pSP, bIsLastVclNalInAU, true);
+    AL_TerminatePreviousCommand(pCtx, pPP, pSP, pBufs, bIsLastVclNalInAU, true);
     return;
   }
 
@@ -412,7 +413,7 @@ void AL_AVC_PrepareCommand(AL_TDecCtx* pCtx, AL_TScl* pSCL, AL_TDecPicParam* pPP
     pSP->ColocPicID = pPrevSP->ColocPicID;
 
   // stock command registers in memory
-  AL_TerminatePreviousCommand(pCtx, pPP, pSP, false, true);
+  AL_TerminatePreviousCommand(pCtx, pPP, pSP, pBufs, false, true);
 
   if(pSP->SliceFirstLCU)
     pSP->FirstLcuTileID = pSP->DependentSlice ? pPrevSP->FirstLcuTileID : pCtx->tCurrentFrameCtx.uCurTileID;
@@ -454,7 +455,7 @@ void AL_HEVC_PrepareCommand(AL_TDecCtx* pCtx, AL_TScl* pSCL, AL_TDecPicParam* pP
 
   if(pPrevSP && !bIsValid && bIsLastVclNalInAU)
   {
-    AL_TerminatePreviousCommand(pCtx, pPP, pSP, bIsLastVclNalInAU, true);
+    AL_TerminatePreviousCommand(pCtx, pPP, pSP, pBufs, bIsLastVclNalInAU, true);
     return;
   }
 
@@ -463,7 +464,7 @@ void AL_HEVC_PrepareCommand(AL_TDecCtx* pCtx, AL_TScl* pSCL, AL_TDecPicParam* pP
     pSP->ColocPicID = pPrevSP->ColocPicID;
 
   // stock command registers in memory
-  AL_TerminatePreviousCommand(pCtx, pPP, pSP, false, pSP->DependentSlice);
+  AL_TerminatePreviousCommand(pCtx, pPP, pSP, pBufs, false, pSP->DependentSlice);
 
   if(pSP->FirstLcuSliceSegment)
   {

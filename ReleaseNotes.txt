@@ -108,7 +108,7 @@
       - Error concealement
     -- Several minors bugs
 
-2023-01-11 (v1.0.77)
+2024-01-11 (v1.0.77)
 --------------------
   Added Features:
     -- Alignment for Windows
@@ -128,4 +128,21 @@
     -- Decoder:
       - Split-input with multiple configuration
       - Error concealement
+    -- Several minors bugs
+
+2024-02-16 (v1.0.79)
+--------------------
+  Added Features:
+    -- lib_app: Tons of conversion
+    -- Use AL_TPicformat in lot a API function instead of multiple parameters
+    -- Decoder:
+      - resolution found callback modification
+      - print when resolution is found
+
+  API:
+    -- Version of the API is now 0.42.0
+
+  Fixes:
+    -- Several races conditions
+    -- Typos
     -- Several minors bugs

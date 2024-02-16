@@ -38,7 +38,7 @@ void AL_LaunchSliceDecoding(AL_TDecCtx* pCtx, bool bIsLastAUNal, bool hasPreviou
    \param[in]  eChromaMode       Picture chroma mode
    \param[in]  pPP               Pointer to the current picture parameters
 *****************************************************************************/
-bool AL_InitFrameBuffers(AL_TDecCtx* pCtx, AL_TDecPicBuffers* pBufs, bool bStartsNewCVS, AL_TDimension tDim, AL_EChromaMode eChromaMode, AL_TDecPicParam* pPP);
+bool AL_InitFrameBuffers(AL_TDecCtx* pCtx, AL_TDecPicBuffers* pBufs, bool bStartsNewCVS, AL_TDimension tDim, AL_EChromaMode eDecodedChromaMode, AL_TDecPicParam* pPP);
 
 /*************************************************************************//*!
    \brief The AL_CancelFrameBuffers function reverts the frame buffers initialization done by AL_InitFrameBuffers in case of late error detection
@@ -58,10 +58,11 @@ void AL_SetConcealParameters(AL_TDecCtx* pCtx, AL_TDecSliceParam* pSP);
    \param[in]  pCtx              Pointer to a decoder context object
    \param[in]  pPP               Pointer to the current picture parameters
    \param[in]  pSP               Pointer to the current slice parameters
+   \param[in]  pBufs             Pointer to the current picture buffers
    \param[in]  bIsLastVclNalInAU Specifies if this is the last NAL of the current access unit
    \param[in]  bNextIsDependent  Specifies if the next slice segment is a dependent or non-dependent slice
 *****************************************************************************/
-void AL_TerminatePreviousCommand(AL_TDecCtx* pCtx, AL_TDecPicParam const* pPP, AL_TDecSliceParam* pSP, bool bIsLastVclNalInAU, bool bNextIsDependent);
+void AL_TerminatePreviousCommand(AL_TDecCtx* pCtx, AL_TDecPicParam const* pPP, AL_TDecSliceParam* pSP, AL_TDecPicBuffers* pBufs, bool bIsLastVclNalInAU, bool bNextIsDependent);
 
 /*************************************************************************//*!
    \brief The AL_AVC_PrepareCommand function prepares the buffers for the hardware decoding process

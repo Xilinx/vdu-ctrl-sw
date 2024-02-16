@@ -7,4 +7,3 @@
 
 /*****************************************************************************/
 int GetAlignedStreamBufferSize(int iStreamBufferSize);
-
