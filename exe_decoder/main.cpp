@@ -1422,127 +1422,137 @@ void SafeRunChannelMain(WorkerConfig& w)
 
   // Configure the decoders
   // ----------------------
-  DecoderContext tDecCtx(config, pAllocator);
-
-  // Create the decoders
-  // -------------------
   findDecDev:
-
-  if(config.UseBaseDecoder())
   {
-    shared_ptr<I_IpDevice> device = w.devices->at(DEVICE_BASE_DECODER);
+    DecoderContext tDecCtx(config, pAllocator);
 
-    if(config.bSelectDeviceWithLowestAvailableResources && bFindNextDevice)
-    {
-      tDecCtx.SetPushBackToDecoder();
-      pIpDevice->SelectNextDevice();
-      pAllocator = pIpDevice->GetAllocator();
-      bFindNextDevice = false;
-    }
-    tDecCtx.CreateBaseDecoder(device);
-  }
-
-  // Parametrization of the base decoder for traces
-  // ----------------------------------------------
-  if(config.UseBaseDecoder())
-  {
-    auto hDec = tDecCtx.GetBaseDecoderHandle();
-    AL_Decoder_SetParam(hDec, w.useBoards->at(DEVICE_BASE_DECODER) ? "Fpga" : "Ref", config.iTraceIdx, config.iTraceNumber, config.bForceCleanBuffers, config.ipCtrlMode == AL_IPCTRL_MODE_TRACE);
-  }
-
-  // Parametrization of the lcevc decoder for traces
-  // -----------------------------------------------
-
-  // Configure the stream buffer pool
-  // --------------------------------
-  // Note : Must be before scopeExit so that AL_Decoder_Destroy can be called
-  // before the BufPool destroyer. Can it be done differently so that it is not dependant of this order ?
-  BufPool tInputPool;
-  ConfigureInputPool(config, pAllocator, tInputPool);
-
-  // Insure destroying is done even after throwing
-  // ---------------------------------------------
-  auto scopeDecoder = scopeExit([&]() {
-    tDecCtx.StopSendingBuffer(); // Prevent to push buffer to the decoder while destroying it
+    // Create the decoders
+    // -------------------
 
     if(config.UseBaseDecoder())
-      AL_Decoder_Destroy(tDecCtx.GetBaseDecoderHandle());
-  });
-
-  // Use preallocation for buffer sizing
-  // -----------------------------------
-  if(config.UseBaseDecoder() && config.bUsePreAlloc)
-  {
-    auto hDec = tDecCtx.GetBaseDecoderHandle();
-
-    if(!AL_Decoder_PreallocateBuffers(hDec))
-      if(auto eErr = AL_Decoder_GetLastError(hDec))
-        throw codec_error(eErr);
-  }
-
-  // Start feeding the decoder
-  // -------------------------
-  auto const uBegin = GetPerfTime();
-  bool timeoutOccurred = false;
-
-  for(int iLoop = 0; iLoop < config.iLoop; ++iLoop)
-  {
-    tInputPool.Commit();
-
-    if(iLoop > 0)
-      LogVerbose(CC_GREY, "  Looping\n");
-
-    // Setup the reader of bitstream in the file.
-    // It will send bitstream chunk to the decoder
-    AsyncFileInput producer;
-    AL_ECodec eCodec = config.tDecSettings.eCodec;
-
-    producer.Init(tDecCtx.GetBaseDecoderHandle(), tInputPool, AL_Decoder_Flush, AL_Decoder_PushStreamBuffer);
-
-    producer.ConfigureStreamInput(config.sIn, config.sSplitSizesFile, config.tDecSettings.eInputMode == AL_DEC_SPLIT_INPUT, eCodec, config.tDecSettings.eDecUnit == AL_VCL_NAL_UNIT);
-    producer.Start();
-
-    auto const maxWait = config.iTimeoutInSeconds * 1000;
-    auto const timeout = maxWait >= 0 ? maxWait : AL_WAIT_FOREVER;
-
-    if(!tDecCtx.WaitExit(timeout))
-      timeoutOccurred = true;
-
-    tInputPool.Decommit();
-  }
-
-  auto const uEnd = GetPerfTime();
-
-  // Prevent the display to produce some outputs
-  auto lock = tDecCtx.LockDisplay();
-
-  // Get the errors
-  // --------------
-  AL_ERR eErr = AL_SUCCESS;
-
-  if(tDecCtx.GetBaseDecoderHandle())
-    eErr = AL_Decoder_GetLastError(tDecCtx.GetBaseDecoderHandle());
-
-  if(AL_IS_ERROR_CODE(eErr) || (AL_IS_WARNING_CODE(eErr) && config.eExitCondition == DEC_WARNING))
-  {
-
-    if((config.iSchedulerType == AL_SCHEDULER_TYPE_MCU) && config.bSelectDeviceWithLowestAvailableResources)
     {
-      bFindNextDevice = pIpDevice->HandleDeviceFailure();
+      shared_ptr<I_IpDevice> device = w.devices->at(DEVICE_BASE_DECODER);
 
-      if(!bFindNextDevice)
-        throw codec_error(eErr);
-      goto findDecDev;
+      if(config.bSelectDeviceWithLowestAvailableResources && bFindNextDevice)
+      {
+        tDecCtx.SetPushBackToDecoder();
+        pIpDevice->SelectNextDevice();
+        pAllocator = pIpDevice->GetAllocator();
+        bFindNextDevice = false;
+      }
+      tDecCtx.CreateBaseDecoder(device);
     }
-    else
-    throw codec_error(eErr);
+
+    // Parametrization of the base decoder for traces
+    // ----------------------------------------------
+    if(config.UseBaseDecoder())
+    {
+      auto hDec = tDecCtx.GetBaseDecoderHandle();
+      AL_Decoder_SetParam(hDec, w.useBoards->at(DEVICE_BASE_DECODER) ? "Fpga" : "Ref", config.iTraceIdx, config.iTraceNumber, config.bForceCleanBuffers, config.ipCtrlMode == AL_IPCTRL_MODE_TRACE);
+    }
+
+    // Parametrization of the lcevc decoder for traces
+    // -----------------------------------------------
+
+    // Configure the stream buffer pool
+    // --------------------------------
+    // Note : Must be before scopeExit so that AL_Decoder_Destroy can be called
+    // before the BufPool destroyer. Can it be done differently so that it is not dependant of this order ?
+    BufPool tInputPool;
+    ConfigureInputPool(config, pAllocator, tInputPool);
+
+    // Insure destroying is done even after throwing
+    // ---------------------------------------------
+    auto scopeDecoder = scopeExit([&]() {
+      tDecCtx.StopSendingBuffer(); // Prevent to push buffer to the decoder while destroying it
+
+      if(config.UseBaseDecoder())
+        AL_Decoder_Destroy(tDecCtx.GetBaseDecoderHandle());
+    });
+
+    // Use preallocation for buffer sizing
+    // -----------------------------------
+    if(config.UseBaseDecoder() && config.bUsePreAlloc)
+    {
+      auto hDec = tDecCtx.GetBaseDecoderHandle();
+
+      if(!AL_Decoder_PreallocateBuffers(hDec))
+        if(auto eErr = AL_Decoder_GetLastError(hDec))
+          throw codec_error(eErr);
+    }
+
+    // Start feeding the decoder
+    // -------------------------
+    auto const uBegin = GetPerfTime();
+    bool timeoutOccurred = false;
+
+    for(int iLoop = 0; iLoop < config.iLoop; ++iLoop)
+    {
+      tInputPool.Commit();
+
+      if(iLoop > 0)
+        LogVerbose(CC_GREY, "  Looping\n");
+
+      // Setup the reader of bitstream in the file.
+      // It will send bitstream chunk to the decoder
+      AsyncFileInput producer;
+      AL_ECodec eCodec = config.tDecSettings.eCodec;
+
+      producer.Init(tDecCtx.GetBaseDecoderHandle(), tInputPool, AL_Decoder_Flush, AL_Decoder_PushStreamBuffer);
+
+      producer.ConfigureStreamInput(config.sIn, config.sSplitSizesFile, config.tDecSettings.eInputMode == AL_DEC_SPLIT_INPUT, eCodec, config.tDecSettings.eDecUnit == AL_VCL_NAL_UNIT);
+      producer.Start();
+
+      auto const maxWait = config.iTimeoutInSeconds * 1000;
+      auto const timeout = maxWait >= 0 ? maxWait : AL_WAIT_FOREVER;
+
+      if(!tDecCtx.WaitExit(timeout))
+        timeoutOccurred = true;
+
+      tInputPool.Decommit();
+    }
+
+    auto const uEnd = GetPerfTime();
+
+    // Prevent the display to produce some outputs
+    auto lock = tDecCtx.LockDisplay();
+
+    // Get the errors
+    // --------------
+    AL_ERR eErr = AL_SUCCESS;
+
+    if(tDecCtx.GetBaseDecoderHandle())
+      eErr = AL_Decoder_GetLastError(tDecCtx.GetBaseDecoderHandle());
+
+    bool bUseGoto = false;
+    if(AL_IS_ERROR_CODE(eErr) || (AL_IS_WARNING_CODE(eErr) && config.eExitCondition == DEC_WARNING))
+    {
+
+      if((config.iSchedulerType == AL_SCHEDULER_TYPE_MCU) && config.bSelectDeviceWithLowestAvailableResources)
+      {
+        bFindNextDevice = pIpDevice->HandleDeviceFailure();
+
+        if(!bFindNextDevice)
+          throw codec_error(eErr);
+        bUseGoto = true;
+      }
+      else
+        throw codec_error(eErr);
+    }
+
+    if(!tDecCtx.GetNumDecodedFrames() && !bUseGoto)
+      throw runtime_error("No frame decoded");
+
+    if(!bUseGoto)
+    {
+    auto const duration = (uEnd - uBegin) / 1000.0;
+    ShowStatistics(duration, tDecCtx.GetNumConcealedFrame(), tDecCtx.GetNumDecodedFrames(), timeoutOccurred);
+    }
+
   }
 
-  if(!tDecCtx.GetNumDecodedFrames())
-    throw runtime_error("No frame decoded");
-
-  auto const duration = (uEnd - uBegin) / 1000.0;
-  ShowStatistics(duration, tDecCtx.GetNumConcealedFrame(), tDecCtx.GetNumDecodedFrames(), timeoutOccurred);
+  if(bUseGoto)
+    goto findDecDev;
 }
 
 /******************************************************************************/
