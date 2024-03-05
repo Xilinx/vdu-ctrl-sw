@@ -1403,6 +1403,7 @@ void SafeRunChannelMain(WorkerConfig& w)
   auto& config = *w.pConfig;
   AL_TAllocator* pAllocator = nullptr;
 
+  bool bUseGoto = false;
   std::shared_ptr<CIpDevice> pIpDevice = nullptr;
 
   if(config.iSchedulerType == AL_SCHEDULER_TYPE_MCU)
@@ -1524,7 +1525,7 @@ void SafeRunChannelMain(WorkerConfig& w)
     if(tDecCtx.GetBaseDecoderHandle())
       eErr = AL_Decoder_GetLastError(tDecCtx.GetBaseDecoderHandle());
 
-    bool bUseGoto = false;
+    bUseGoto = false;
     if(AL_IS_ERROR_CODE(eErr) || (AL_IS_WARNING_CODE(eErr) && config.eExitCondition == DEC_WARNING))
     {
 

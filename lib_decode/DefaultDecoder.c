@@ -2100,8 +2100,6 @@ static void InitAUP(AL_TDecCtx* pCtx)
 /*****************************************************************************/
 AL_ERR AL_CreateDefaultDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler, AL_TAllocator* pAllocator, AL_TDecSettings* pSettings, AL_TDecCallBacks* pCB)
 {
-  bool res;
-
   *hDec = NULL;
 
   if(!CheckSettings(pSettings))
@@ -2126,9 +2124,8 @@ AL_ERR AL_CreateDefaultDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler,
   pCtx->pAllocator = pAllocator;
 
   InitInternalBuffers(pCtx);
-  res = AL_PictMngr_PreInit(&pCtx->PictMngr);
 
-  if(!res)
+  if(!AL_PictMngr_PreInit(&pCtx->PictMngr))
     return AL_ERR_NO_MEMORY;
 
 #define SAFE_ALLOC(pCtx, pMD, uSize, name) \
@@ -2199,7 +2196,10 @@ AL_ERR AL_CreateDefaultDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler,
   pCtx->BufNoAE.tMD.pVirtualAddr = Rtos_Malloc(NON_VCL_NAL_SIZE);
 
   if(!pCtx->BufNoAE.tMD.pVirtualAddr)
+  {
+    errorCode = AL_ERR_NO_MEMORY;
     goto cleanup;
+  }
 
   pCtx->BufNoAE.tMD.uSize = NON_VCL_NAL_SIZE;
 
@@ -2212,7 +2212,10 @@ AL_ERR AL_CreateDefaultDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler,
   AL_Assert(pCtx->eosBuffer);
 
   if(!pCtx->eosBuffer)
+  {
+    errorCode = AL_ERR_NO_MEMORY;
     goto cleanup;
+  }
 
   AL_Buffer_Ref(pCtx->eosBuffer);
 
@@ -2236,7 +2239,10 @@ AL_ERR AL_CreateDefaultDecoder(AL_TDecoder** hDec, AL_IDecScheduler* pScheduler,
   }
 
   if(!pCtx->Feeder)
+  {
+    errorCode = AL_ERR_NO_MEMORY;
     goto cleanup;
+  }
 
   bool useStartCode = true;
 
