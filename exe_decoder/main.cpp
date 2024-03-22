@@ -38,9 +38,11 @@ extern "C" {
 #include "lib_app/BufPool.h"
 #include "lib_app/MD5.h"
 #include "lib_app/PixMapBufPool.h"
+#include "lib_app/SinkFilter.h"
+#include "lib_app/SinkCrop.h"
 #include "lib_app/SinkCrcDump.h"
+#include "lib_app/SinkFrame.h"
 #include "lib_app/UnCompFrameReader.h"
-#include "lib_app/UnCompFrameWriter.h"
 #include "lib_app/YuvIO.h"
 #include "lib_app/console.h"
 #include "lib_app/convert.h"
@@ -52,7 +54,6 @@ extern "C" {
 
 #include "CmdParser.h"
 #include "CodecUtils.h"
-#include "Conversion.h"
 #include "InputLoader.h"
 #include "IpDevice.h"
 #include "SinkYuvCrc.h"
@@ -153,7 +154,8 @@ private:
 
   void CopyMetaData(AL_TBuffer* pDstFrame, AL_TBuffer* pSrcFrame, AL_EMetaType eMetaType);
 
-  unique_ptr<MultiSink> multisink = unique_ptr<MultiSink>(new MultiSink);
+  unique_ptr<MultiSink> multisinkRaw = unique_ptr<MultiSink>(new MultiSink);
+  unique_ptr<MultiSink> multisinkOut = unique_ptr<MultiSink>(new MultiSink);
 
   AL_EFbStorageMode eMainOutputStorageMode;
   bool bOutputWritersCreated = false;
@@ -188,7 +190,9 @@ void DisplayManager::Configure(Config const& config)
       eMainOutputStorageMode = AL_FB_RASTER;
   }
 
-  bHasOutput = (config.bEnableYUVOutput || config.bCertCRC || !config.sCrc.empty() || !config.md5File.empty());
+  bool bMd5Output = !config.md5File.empty();
+
+  bHasOutput = (config.bEnableYUVOutput || config.bCertCRC || bMd5Output);
   bEnableYuvOutput = config.bEnableYUVOutput;
 
   if(bHasOutput)
@@ -210,27 +214,28 @@ void DisplayManager::Configure(Config const& config)
       }
     }
 
-    if(!config.md5File.empty() && !bMainOutputCompression)
+    if(bMd5Output && !bMainOutputCompression)
     {
-      std::unique_ptr<IFrameSink> md5Calculator = createYuvMd5Calculator(config.md5File);
-      multisink->addSink(md5Calculator);
+      std::unique_ptr<IFrameSink> md5Calculator(createYuvMd5Calculator(config.md5File));
+      std::unique_ptr<IFrameSink> md5Sink(new SinkCrop(md5Calculator));
+      multisinkOut->addSink(md5Sink);
     }
-
-    std::unique_ptr<IFrameSink> crcDump = createStreamCrcDump(config.sCrc);
-    multisink->addSink(crcDump);
 
     if(config.bCertCRC)
     {
       const string sCertCrcFile = "crc_certif_res.hex";
-      std::unique_ptr<IFrameSink> crcCSCalculator = createCSCrcCalculator(sCertCrcFile);
-      multisink->addSink(crcCSCalculator);
+      std::unique_ptr<IFrameSink> crcCSCalculator(createCSCrcCalculator(sCertCrcFile));
+      std::unique_ptr<IFrameSink> crcSink(new SinkCrop(crcCSCalculator));
+      multisinkOut->addSink(crcSink);
     }
-
   }
 
   iBitDepth = config.iOutputBitDepth;
   tOutputFourCC = config.tOutputFourCC;
   MaxFrames = config.iMaxFrames;
+
+  std::unique_ptr<IFrameSink> crcDump(createStreamCrcDump(config.sCrc));
+  multisinkRaw->addSink(crcDump);
 
   if(!config.hdrFile.empty())
     pHDRWriter = shared_ptr<HDRWriter>(new HDRWriter(config.hdrFile));
@@ -247,8 +252,9 @@ void DisplayManager::ConfigureMainOutputWriters(AL_TDecOutputSettings const& tDe
   AL_EFbStorageMode eOutputStorageMode = eMainOutputStorageMode;
 
   {
-    std::unique_ptr<IFrameSink> uncompressedSink = std::unique_ptr<UnCompFrameWriter>(new UnCompFrameWriter(hFileOut, eOutputStorageMode, eOutputType));
-    multisink->addSink(uncompressedSink);
+    std::unique_ptr<IFrameSink> frameSink(createUnCompFrameSink(hFileOut, eOutputStorageMode));
+    std::unique_ptr<IFrameSink> uncompressedSink(new SinkFilter(eOutputType, frameSink));
+    multisinkOut->addSink(uncompressedSink);
   }
 
   bOutputWritersCreated = true;
@@ -269,7 +275,7 @@ void DisplayManager::CopyMetaData(AL_TBuffer* pDstFrame, AL_TBuffer* pSrcFrame, 
   AL_TMetaData* pOrigMeta = AL_Buffer_GetMetaData(pSrcFrame, eMetaType);
 
   if(!pOrigMeta)
-    throw runtime_error("Metadata does is NULL");
+    throw runtime_error("Metadata is NULL");
   switch(eMetaType)
   {
   case AL_META_TYPE_PIXMAP:
@@ -325,6 +331,8 @@ bool DisplayManager::Process(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo, int iBit
         iBitDepth = iBitDepthAlloc;
 
       int iEffectiveBitDepth = iBitDepth == OUTPUT_BD_STREAM ? iCurrentBitDepth : iBitDepth;
+
+      multisinkRaw->ProcessFrame(pDisplayFrame);
 
       if(bHasOutput)
         ProcessFrame(*pDisplayFrame, *pInfo, iEffectiveBitDepth, tOutputFourCC);
@@ -721,7 +729,7 @@ static void SetDecOutputSettings(AL_TDecOutputSettings& tUserOutputSettings, AL_
 
   tUserOutputSettings.tPicFormat.eStorageMode = GetMainOutputStorageMode(tUserOutputSettings, tDecSettings.eFBStorageMode);
 
-  if(tUserOutputSettings.tPicFormat.eStorageMode == AL_FB_TILE_32x4 || tUserOutputSettings.tPicFormat.eStorageMode == AL_FB_TILE_64x4)
+  if(IsTile(tUserOutputSettings.tPicFormat.eStorageMode))
     tUserOutputSettings.tPicFormat.eSamplePackMode = AL_SAMPLE_PACK_MODE_PACKED;
 
   /* TODO: The user will have to indicate the pack_mode so maybe this setting should not be here.
@@ -880,15 +888,20 @@ void DisplayManager::ProcessFrame(AL_TBuffer& tRecBuf, AL_TInfoDecode info, int 
       AL_COMPONENT_ORDER_YUV,
       AL_SAMPLE_PACK_MODE_BYTE,
       false,
-      false
+      tRecPicFormat.bMSB
     };
 
     tFourCCOut = AL_GetFourCC(tConvPicFormat);
   }
+  else if(tFourCCOut == FOURCC(hard))
+  {
+    tFourCCOut = tFourCCRecBuf;
+  }
 
   bool bCompress = AL_IsCompressed(tFourCCRecBuf);
+  bool bConvert = !bCompress && tFourCCOut != tFourCCRecBuf;
 
-  if(!bCompress)
+  if(bConvert)
   {
     if(tInputFourCC != tFourCCOut && bNewInputFourCCFound)
     {
@@ -901,23 +914,10 @@ void DisplayManager::ProcessFrame(AL_TBuffer& tRecBuf, AL_TInfoDecode info, int 
     AL_TBuffer* YuvBuffer = NULL;
     ConvertFrameBuffer(&tRecBuf, YuvBuffer, iBdOut, tPos, tFourCCOut);
 
-    auto const iSizePix = (iBdOut + 7) >> 3;
-
-    if(tCrop.bCropping)
-      CropFrame(YuvBuffer, iSizePix, tCrop);
-
     CopyMetaData(YuvBuffer, &tRecBuf, AL_META_TYPE_DISPLAY_INFO);
 
-    multisink->ProcessFrame(YuvBuffer);
+    multisinkOut->ProcessFrame(YuvBuffer);
 
-    if(tCrop.bCropping)
-    {
-      tCrop.uCropOffsetBottom = -tCrop.uCropOffsetBottom;
-      tCrop.uCropOffsetLeft = -tCrop.uCropOffsetLeft;
-      tCrop.uCropOffsetRight = -tCrop.uCropOffsetRight;
-      tCrop.uCropOffsetTop = -tCrop.uCropOffsetTop;
-      CropFrame(YuvBuffer, iSizePix, tCrop);
-    }
     AL_Buffer_Destroy(YuvBuffer);
   }
   else
@@ -926,7 +926,8 @@ void DisplayManager::ProcessFrame(AL_TBuffer& tRecBuf, AL_TInfoDecode info, int 
 
     if(pMeta)
       pMeta->tCrop = tCrop;
-    multisink->ProcessFrame(&tRecBuf);
+
+    multisinkOut->ProcessFrame(&tRecBuf);
   }
 
 }
@@ -1403,7 +1404,6 @@ void SafeRunChannelMain(WorkerConfig& w)
   auto& config = *w.pConfig;
   AL_TAllocator* pAllocator = nullptr;
 
-  bool bUseGoto = false;
   std::shared_ptr<CIpDevice> pIpDevice = nullptr;
 
   if(config.iSchedulerType == AL_SCHEDULER_TYPE_MCU)
@@ -1421,139 +1421,143 @@ void SafeRunChannelMain(WorkerConfig& w)
   // ------------------
   CheckAndAdjustChannelConfiguration(config);
 
+  // Ugly goto that need to be revamp in the upper layer
+  // ---------------------------------------------------
+  findDecDev:
+  bool bShouldUseGoto = false;
+  {
+
   // Configure the decoders
   // ----------------------
-  findDecDev:
+  DecoderContext tDecCtx(config, pAllocator);
+
+  // Create the decoders
+  // -------------------
+  if(config.UseBaseDecoder())
   {
-    DecoderContext tDecCtx(config, pAllocator);
+    shared_ptr<I_IpDevice> device = w.devices->at(DEVICE_BASE_DECODER);
 
-    // Create the decoders
-    // -------------------
-
-    if(config.UseBaseDecoder())
+    if(config.bSelectDeviceWithLowestAvailableResources && bFindNextDevice)
     {
-      shared_ptr<I_IpDevice> device = w.devices->at(DEVICE_BASE_DECODER);
-
-      if(config.bSelectDeviceWithLowestAvailableResources && bFindNextDevice)
-      {
-        tDecCtx.SetPushBackToDecoder();
-        pIpDevice->SelectNextDevice();
-        pAllocator = pIpDevice->GetAllocator();
-        bFindNextDevice = false;
-      }
-      tDecCtx.CreateBaseDecoder(device);
+      tDecCtx.SetPushBackToDecoder();
+      pIpDevice->SelectNextDevice();
+      pAllocator = pIpDevice->GetAllocator();
+      bFindNextDevice = false;
     }
-
-    // Parametrization of the base decoder for traces
-    // ----------------------------------------------
-    if(config.UseBaseDecoder())
-    {
-      auto hDec = tDecCtx.GetBaseDecoderHandle();
-      AL_Decoder_SetParam(hDec, w.useBoards->at(DEVICE_BASE_DECODER) ? "Fpga" : "Ref", config.iTraceIdx, config.iTraceNumber, config.bForceCleanBuffers, config.ipCtrlMode == AL_IPCTRL_MODE_TRACE);
-    }
-
-    // Parametrization of the lcevc decoder for traces
-    // -----------------------------------------------
-
-    // Configure the stream buffer pool
-    // --------------------------------
-    // Note : Must be before scopeExit so that AL_Decoder_Destroy can be called
-    // before the BufPool destroyer. Can it be done differently so that it is not dependant of this order ?
-    BufPool tInputPool;
-    ConfigureInputPool(config, pAllocator, tInputPool);
-
-    // Insure destroying is done even after throwing
-    // ---------------------------------------------
-    auto scopeDecoder = scopeExit([&]() {
-      tDecCtx.StopSendingBuffer(); // Prevent to push buffer to the decoder while destroying it
-
-      if(config.UseBaseDecoder())
-        AL_Decoder_Destroy(tDecCtx.GetBaseDecoderHandle());
-    });
-
-    // Use preallocation for buffer sizing
-    // -----------------------------------
-    if(config.UseBaseDecoder() && config.bUsePreAlloc)
-    {
-      auto hDec = tDecCtx.GetBaseDecoderHandle();
-
-      if(!AL_Decoder_PreallocateBuffers(hDec))
-        if(auto eErr = AL_Decoder_GetLastError(hDec))
-          throw codec_error(eErr);
-    }
-
-    // Start feeding the decoder
-    // -------------------------
-    auto const uBegin = GetPerfTime();
-    bool timeoutOccurred = false;
-
-    for(int iLoop = 0; iLoop < config.iLoop; ++iLoop)
-    {
-      tInputPool.Commit();
-
-      if(iLoop > 0)
-        LogVerbose(CC_GREY, "  Looping\n");
-
-      // Setup the reader of bitstream in the file.
-      // It will send bitstream chunk to the decoder
-      AsyncFileInput producer;
-      AL_ECodec eCodec = config.tDecSettings.eCodec;
-
-      producer.Init(tDecCtx.GetBaseDecoderHandle(), tInputPool, AL_Decoder_Flush, AL_Decoder_PushStreamBuffer);
-
-      producer.ConfigureStreamInput(config.sIn, config.sSplitSizesFile, config.tDecSettings.eInputMode == AL_DEC_SPLIT_INPUT, eCodec, config.tDecSettings.eDecUnit == AL_VCL_NAL_UNIT);
-      producer.Start();
-
-      auto const maxWait = config.iTimeoutInSeconds * 1000;
-      auto const timeout = maxWait >= 0 ? maxWait : AL_WAIT_FOREVER;
-
-      if(!tDecCtx.WaitExit(timeout))
-        timeoutOccurred = true;
-
-      tInputPool.Decommit();
-    }
-
-    auto const uEnd = GetPerfTime();
-
-    // Prevent the display to produce some outputs
-    auto lock = tDecCtx.LockDisplay();
-
-    // Get the errors
-    // --------------
-    AL_ERR eErr = AL_SUCCESS;
-
-    if(tDecCtx.GetBaseDecoderHandle())
-      eErr = AL_Decoder_GetLastError(tDecCtx.GetBaseDecoderHandle());
-
-    bUseGoto = false;
-    if(AL_IS_ERROR_CODE(eErr) || (AL_IS_WARNING_CODE(eErr) && config.eExitCondition == DEC_WARNING))
-    {
-
-      if((config.iSchedulerType == AL_SCHEDULER_TYPE_MCU) && config.bSelectDeviceWithLowestAvailableResources)
-      {
-        bFindNextDevice = pIpDevice->HandleDeviceFailure();
-
-        if(!bFindNextDevice)
-          throw codec_error(eErr);
-        bUseGoto = true;
-      }
-      else
-        throw codec_error(eErr);
-    }
-
-    if(!tDecCtx.GetNumDecodedFrames() && !bUseGoto)
-      throw runtime_error("No frame decoded");
-
-    if(!bUseGoto)
-    {
-    auto const duration = (uEnd - uBegin) / 1000.0;
-    ShowStatistics(duration, tDecCtx.GetNumConcealedFrame(), tDecCtx.GetNumDecodedFrames(), timeoutOccurred);
-    }
-
+    tDecCtx.CreateBaseDecoder(device);
   }
 
-  if(bUseGoto)
-    goto findDecDev;
+  // Parametrization of the base decoder for traces
+  // ----------------------------------------------
+  if(config.UseBaseDecoder())
+  {
+    auto hDec = tDecCtx.GetBaseDecoderHandle();
+    AL_Decoder_SetParam(hDec, w.useBoards->at(DEVICE_BASE_DECODER) ? "Fpga" : "Ref", config.iTraceIdx, config.iTraceNumber, config.bForceCleanBuffers, config.ipCtrlMode == AL_IPCTRL_MODE_TRACE);
+  }
+
+  // Parametrization of the lcevc decoder for traces
+  // -----------------------------------------------
+
+  // Configure the stream buffer pool
+  // --------------------------------
+  // Note : Must be before scopeExit so that AL_Decoder_Destroy can be called
+  // before the BufPool destroyer. Can it be done differently so that it is not dependant of this order ?
+  BufPool tInputPool;
+  ConfigureInputPool(config, pAllocator, tInputPool);
+
+  // Insure destroying is done even after throwing
+  // ---------------------------------------------
+  auto scopeDecoder = scopeExit([&]() {
+    tDecCtx.StopSendingBuffer(); // Prevent to push buffer to the decoder while destroying it
+
+    if(config.UseBaseDecoder())
+      AL_Decoder_Destroy(tDecCtx.GetBaseDecoderHandle());
+  });
+
+  // Use preallocation for buffer sizing
+  // -----------------------------------
+  if(config.UseBaseDecoder() && config.bUsePreAlloc)
+  {
+    auto hDec = tDecCtx.GetBaseDecoderHandle();
+
+    if(!AL_Decoder_PreallocateBuffers(hDec))
+      if(auto eErr = AL_Decoder_GetLastError(hDec))
+        throw codec_error(eErr);
+  }
+
+  // Start feeding the decoder
+  // -------------------------
+  auto const uBegin = GetPerfTime();
+  bool timeoutOccurred = false;
+
+  for(int iLoop = 0; iLoop < config.iLoop; ++iLoop)
+  {
+    tInputPool.Commit();
+
+    if(iLoop > 0)
+      LogVerbose(CC_GREY, "  Looping\n");
+
+    // Setup the reader of bitstream in the file.
+    // It will send bitstream chunk to the decoder
+    AsyncFileInput producer;
+    AL_ECodec eCodec = config.tDecSettings.eCodec;
+
+    producer.Init(tDecCtx.GetBaseDecoderHandle(), tInputPool, AL_Decoder_Flush, AL_Decoder_PushStreamBuffer);
+
+    producer.ConfigureStreamInput(config.sIn, config.sSplitSizesFile, config.tDecSettings.eInputMode == AL_DEC_SPLIT_INPUT, eCodec, config.tDecSettings.eDecUnit == AL_VCL_NAL_UNIT);
+    producer.Start();
+
+    auto const maxWait = config.iTimeoutInSeconds * 1000;
+    auto const timeout = maxWait >= 0 ? maxWait : AL_WAIT_FOREVER;
+
+    if(!tDecCtx.WaitExit(timeout))
+      timeoutOccurred = true;
+
+    tInputPool.Decommit();
+  }
+
+  auto const uEnd = GetPerfTime();
+
+  // Prevent the display to produce some outputs
+  auto lock = tDecCtx.LockDisplay();
+
+  // Get the errors
+  // --------------
+  AL_ERR eErr = AL_SUCCESS;
+
+  if(tDecCtx.GetBaseDecoderHandle())
+    eErr = AL_Decoder_GetLastError(tDecCtx.GetBaseDecoderHandle());
+
+  if(AL_IS_ERROR_CODE(eErr) || (AL_IS_WARNING_CODE(eErr) && config.eExitCondition == DEC_WARNING))
+  {
+
+    if((config.iSchedulerType == AL_SCHEDULER_TYPE_MCU) && config.bSelectDeviceWithLowestAvailableResources)
+    {
+      bFindNextDevice = pIpDevice->HandleDeviceFailure();
+
+      if(!bFindNextDevice)
+        throw codec_error(eErr);
+      bShouldUseGoto = true;
+    }
+    else
+    throw codec_error(eErr);
+  }
+
+// Part of the ugly goto, need to be removed
+  if(!bShouldUseGoto)
+  {
+
+  if(!tDecCtx.GetNumDecodedFrames())
+    throw runtime_error("No frame decoded");
+
+  auto const duration = (uEnd - uBegin) / 1000.0;
+  ShowStatistics(duration, tDecCtx.GetNumConcealedFrame(), tDecCtx.GetNumDecodedFrames(), timeoutOccurred);
+  // Part of the ugly goto, need to be removed
+}
+}// <- End of tDecCtx
+
+if(bShouldUseGoto)
+  goto findDecDev;
 }
 
 /******************************************************************************/
