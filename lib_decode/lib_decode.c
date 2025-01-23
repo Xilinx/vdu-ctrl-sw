@@ -1,7 +1,8 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_decode/lib_decode.h"
+#include "lib_common/PicFormat.h"
 #include "lib_decode/LibDecoderHost.h"
 
 /* Initialize with decHost so AL_Lib_Decoder_Init() call is optional for the
@@ -23,7 +24,7 @@ AL_ERR AL_Lib_Decoder_Init(AL_ELibDecoderArch eArch)
 }
 
 /*****************************************************************************/
-void AL_Lib_Decoder_DeInit()
+void AL_Lib_Decoder_DeInit(void)
 {
   if(pArch)
     pArch->vtable->Deinit();
@@ -49,12 +50,12 @@ void AL_Decoder_Destroy(AL_HDecoder hDec)
 }
 
 /*****************************************************************************/
-void AL_Decoder_SetParam(AL_HDecoder hDec, const char* sPrefix, int iFrmID, int iNumFrm, bool bForceCleanBuffers, bool bShouldPrintFrameDelimiter)
+void AL_Decoder_SetParam(AL_HDecoder hDec, const char* sPrefix, int32_t iFrmID, int32_t iNumFrm, bool bShouldPrintFrameDelimiter)
 {
   if(!pArch)
     return;
 
-  pArch->vtable->DecoderSetParam(hDec, sPrefix, iFrmID, iNumFrm, bForceCleanBuffers,
+  pArch->vtable->DecoderSetParam(hDec, sPrefix, iFrmID, iNumFrm,
                                  bShouldPrintFrameDelimiter);
 }
 
@@ -111,7 +112,7 @@ AL_ECodec AL_Decoder_GetCodec(AL_HDecoder hDec)
 }
 
 /*****************************************************************************/
-int AL_Decoder_GetMaxBD(AL_HDecoder hDec)
+int32_t AL_Decoder_GetMaxBD(AL_HDecoder hDec)
 {
   if(!pArch)
     return 0;
@@ -147,20 +148,20 @@ bool AL_Decoder_PreallocateBuffers(AL_HDecoder hDec)
 }
 
 /*****************************************************************************/
-uint32_t AL_Decoder_GetMinPitch(uint32_t uWidth, AL_TPicFormat const* pPicFormat)
+int32_t AL_Decoder_GetMinPitch(int32_t iWidth, AL_TPicFormat const* pPicFormat)
 {
   if(!pArch)
     return 0;
 
-  return pArch->vtable->DecoderGetMinPitch(uWidth, pPicFormat);
+  return pArch->vtable->DecoderGetMinPitch(iWidth, pPicFormat);
 }
 
 /*****************************************************************************/
-uint32_t AL_Decoder_GetMinStrideHeight(uint32_t uHeight)
+int32_t AL_Decoder_GetMinStrideHeight(int32_t iHeight, AL_TPicFormat const* pPicFormat)
 {
   if(!pArch)
     return 0;
 
-  return pArch->vtable->DecoderGetMinStrideHeight(uHeight);
+  return pArch->vtable->DecoderGetMinStrideHeight(iHeight, pPicFormat);
 }
 

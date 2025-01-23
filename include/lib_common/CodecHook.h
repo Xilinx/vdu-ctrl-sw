@@ -1,9 +1,9 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
-typedef enum
+typedef enum AL_ECodecHook
 {
   AL_HOOK_ENC,
   AL_HOOK_ENC1,
@@ -17,11 +17,19 @@ typedef enum
   AL_HOOK_FBD,
   AL_HOOK_ME,
   AL_HOOK_POSTPROC,
+  AL_HOOK_PIXELPROC,
   AL_HOOK_BITSTREAM_FLUSH,
   AL_HOOK_LCEVC_DEA,
-  AL_HOOK_LCEVC_DEC,
+  AL_HOOK_LCEVC_DEC1,
+  AL_HOOK_LCEVC_DEC2,
   AL_HOOK_LCEVC_ENC_PREPRO,
   AL_HOOK_LCEVC_ENC_LOQ,
   AL_HOOK_LCEVC_ENC_ENT,
+  AL_HOOK_DFE,
+  AL_HOOK_DBE,
+  AL_HOOK_SPP,
+  AL_HOOK_AOM,
   AL_HOOK_TOP,
+  AL_HOOK_A2P,
+  AL_HOOK_MAX_ENUM,
 }AL_ECodecHook;

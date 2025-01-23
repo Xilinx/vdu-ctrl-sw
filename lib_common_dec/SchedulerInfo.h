@@ -1,11 +1,11 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
 #include "lib_rtos/types.h"
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Core information structure
 *****************************************************************************/
 typedef struct
@@ -15,7 +15,7 @@ typedef struct
   int32_t iVideoResource[AL_DEC_NUM_CORES];
 }AL_TDecSchedulerCore;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Version (SemVer) structure
 *****************************************************************************/
 typedef union
@@ -29,6 +29,14 @@ typedef union
   AL_64U uVersion; /*!< Version */
 }AL_TDecSchedulerVersion;
 
+/*****************************************************************************
+   \brief Scheduler Log information structure
+*****************************************************************************/
+typedef struct
+{
+  bool bEnable;
+}AL_TDecSchedulerLog;
+
 /****************************************************************************/
 typedef enum
 {
@@ -36,5 +44,6 @@ typedef enum
   AL_DEC_SCHEDULER_CORE, /*!< reference: AL_TDecSchedulerCore */
   AL_DEC_SCHEDULER_SCD_TRACE_CALLBACK, /*!< reference: AL_TDecSchedulerTraceCallback */
   AL_DEC_SCHEDULER_CHANNEL_TRACE_CALLBACK, /*!< reference: AL_TDecSchedulerTraceCallback */
+  AL_DEC_SCHEDULER_LOG, /*!< reference: AL_TDecSchedulerLog */
   AL_DEC_SCHEDULER_MAX_ENUM,
 }AL_EDecSchedulerInfo;

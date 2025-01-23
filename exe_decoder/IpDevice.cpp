@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "IpDevice.h"
@@ -12,6 +12,7 @@
 
 #include "IpDevice.h"
 #include "IpDeviceCommon.h"
+#include "lib_app/AllocatorHelper.h"
 #include "lib_app/console.h"
 #include "lib_app/utils.h"
 
@@ -25,21 +26,12 @@ extern "C"
 
 using namespace std;
 
-AL_TAllocator* createDmaAllocator(const char* deviceName)
-{
-  auto h = AL_DmaAlloc_Create(deviceName);
-
-  if(h == nullptr)
-    throw runtime_error("Can't find dma allocator (trying to use " + string(deviceName) + ")");
-  return h;
-}
-
 extern "C"
 {
 #include "lib_decode/DecSchedulerMcu.h"
 }
 
-AL_TAllocator* CreateProxyAllocator(char const*)
+std::shared_ptr<AL_TAllocator> CreateProxyAllocator(char const*)
 {
   // support for the proxy allocator isn't compiled in.
   return nullptr;
@@ -50,7 +42,7 @@ void CIpDevice::ConfigureMcu(AL_TDriver* driver, bool useProxy)
   if(useProxy)
     m_pAllocator = CreateProxyAllocator(this->m_tSelectedDevice.c_str());
   else
-    m_pAllocator = createDmaAllocator(this->m_tSelectedDevice.c_str());
+    m_pAllocator = CreateBoardAllocator(this->m_tSelectedDevice.c_str(), false);
 
   if(!m_pAllocator)
     throw runtime_error("Can't open DMA allocator");
@@ -59,10 +51,9 @@ void CIpDevice::ConfigureMcu(AL_TDriver* driver, bool useProxy)
 
   if(!m_pScheduler)
     throw runtime_error("Failed to create MCU scheduler");
-
 }
 
-CIpDevice::~CIpDevice()
+CIpDevice::~CIpDevice(void)
 {
   if(m_pScheduler)
     AL_IDecScheduler_Destroy(m_pScheduler);
@@ -70,8 +61,6 @@ CIpDevice::~CIpDevice()
   if(m_pTimer)
     AL_ITimer_Deinit(m_pTimer);
 
-  if(m_pAllocator)
-    AL_Allocator_Destroy(m_pAllocator);
 }
 
 #if defined(__linux__)
@@ -82,44 +71,43 @@ CIpDevice::~CIpDevice()
 #include "extra/dirent/include/dirent.h"
 #endif
 #include <cstring>
-static int CountIPDevices()
+
+static int32_t CountIPDevices(void)
 {
+  static const char* decDevice = "allegroDecodeIP";
 
-    static const char* decDevice = "allegroDecodeIP";
-    DIR* devPath = opendir("/dev");
+  DIR* devPath = opendir("/dev");
 
-    if(devPath == nullptr)
+  if(devPath == nullptr)
+  {
+    throw std::runtime_error("Error: could not open directory");
+  }
+
+  struct dirent* entry;
+  int32_t iCount = 0;
+
+  while((entry = readdir(devPath)) != nullptr)
+  {
+    if(std::strncmp(entry->d_name, decDevice, strlen(decDevice) - 1) == 0)
     {
-	throw std::runtime_error("Error: could not open directory");
+      ++iCount;
     }
-    struct dirent* entry;
-    int iCount = 0;
+  }
 
-    while((entry = readdir(devPath)) != nullptr)
-    {
-      if(std::strncmp(entry->d_name, decDevice, strlen(decDevice) - 1) == 0)
-      {
-        ++iCount;
-      }
-    }
+  closedir(devPath);
 
-    closedir(devPath);
-
-    return iCount;
+  return iCount;
 }
-
 
 std::string CIpDevice::SelectMcuDevice(std::set<std::string> const& tDevices)
 {
   std::string best_device;
-
   int32_t selected_resources = m_bSelectDeviceWithLowestAvailableResources ? INT32_MAX : -1;
 
-  int nDeviceIndex = 0;
+  int32_t nDeviceIndex = 0;
 
   for(auto const& device : tDevices)
   {
-
     if(nDeviceIndex >= m_numDevices)
       break;
 
@@ -133,11 +121,11 @@ std::string CIpDevice::SelectMcuDevice(std::set<std::string> const& tDevices)
     if(scheduler == nullptr)
       throw runtime_error(string("Can't create MCU Scheduler: ") + device);
 
-    int total_resources = 0;
+    int32_t total_resources = 0;
     AL_TIDecSchedulerCore tCore;
     AL_IDecScheduler_Get(scheduler, AL_IDECSCHEDULER_CORE, &tCore);
 
-    for(int iCore = 0; iCore < AL_DEC_NUM_CORES; iCore++)
+    for(int32_t iCore = 0; iCore < AL_DEC_NUM_CORES; iCore++)
       total_resources += tCore.iVideoResource[iCore];
 
     if(!m_bSelectDeviceWithLowestAvailableResources)
@@ -166,12 +154,13 @@ std::string CIpDevice::SelectMcuDevice(std::set<std::string> const& tDevices)
 
   return best_device;
 }
+
 bool CIpDevice::IsDeviceFailed(std::string const& device)
 {
   return m_FailedDevices.count(device) > 0;
 }
 
-void CIpDevice::SelectNextDevice()
+void CIpDevice::SelectNextDevice(void)
 {
   m_nDevices++;
 
@@ -184,7 +173,7 @@ void CIpDevice::SelectNextDevice()
   m_SelectedDevices[m_nDevices] = this->m_tSelectedDevice;
 }
 
-bool CIpDevice::HandleDeviceFailure()
+bool CIpDevice::HandleDeviceFailure(void)
 {
   bool bCheckNextDevice = false;
 
@@ -199,7 +188,7 @@ bool CIpDevice::HandleDeviceFailure()
   {
     cout << "All devices failed";
 
-    for(int i = 0; i < m_numDevices; i++)
+    for(int32_t i = 0; i < m_numDevices; i++)
     {
       cout << " - DeviceIP" << i;
     }
@@ -209,13 +198,14 @@ bool CIpDevice::HandleDeviceFailure()
   }
   return bCheckNextDevice;
 }
+
 CIpDevice::CIpDevice(CIpDeviceParam const& param, AL_EDeviceType eDeviceType, std::set<std::string> tDevices) :
   m_tDevices(tDevices)
 {
   (void)param;
   this->m_eDeviceType = eDeviceType;
 
-  if(param.iSchedulerType == AL_SCHEDULER_TYPE_MCU)
+  if(param.eSchedulerType == AL_ESchedulerType::AL_SCHEDULER_TYPE_MCU)
   {
     m_numDevices = CountIPDevices();
     m_bSelectDeviceWithLowestAvailableResources = param.bSelectDeviceWithLowestAvailableResources;
@@ -228,7 +218,7 @@ CIpDevice::CIpDevice(CIpDeviceParam const& param, AL_EDeviceType eDeviceType, st
   throw runtime_error("No support for this scheduling type");
 }
 
-AL_EDeviceType CIpDevice::GetDeviceType()
+AL_EDeviceType CIpDevice::GetDeviceType(void)
 {
   return this->m_eDeviceType;
 }

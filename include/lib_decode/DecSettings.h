@@ -1,9 +1,9 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-/**************************************************************************//*!
+/******************************************************************************
    \addtogroup Decoder_API
-   @{
+   !@{
    \file
  *****************************************************************************/
 
@@ -17,24 +17,25 @@
 #include "lib_common_dec/StreamSettings.h"
 #include "lib_common_dec/DecOutputSettings.h"
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Decoder Input Mode
    \ingroup Decoder_Settings
 *****************************************************************************/
-typedef enum
+typedef enum AL_EDecInputMode
 {
   AL_DEC_UNSPLIT_INPUT, /*!< The input is fed to the decoder without delimitations and the decoder find the decoding unit in the data by himself.*/
   AL_DEC_SPLIT_INPUT, /*!< The input is fed to the decoder with buffers containing one decoding unit each. */
+  AL_DEC_SINGLE_INPUT, /*!< The input is fed to the decoder with a single buffer containing the whole stream. */
 }AL_EDecInputMode;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Decoder Settings
    \ingroup Decoder_Settings
 *****************************************************************************/
-typedef struct
+typedef struct AL_TDecSettings
 {
-  int iStackSize;       /*!< Size of the command stack handled by the decoder */
-  int iStreamBufSize;   /*!< Size of the internal circular stream buffer (0 = default) */
+  int32_t iStackSize;       /*!< Size of the command stack handled by the decoder */
+  int32_t iStreamBufSize;   /*!< Size of the internal circular stream buffer (0 = default) */
   uint8_t uNumCore;     /*!< Number of core used for the decoding */
   bool bNonRealtime;    /*!< Specify is a non-realtime channel */
   uint32_t uFrameRate;  /*!< Frame rate value used if syntax element isn't present */
@@ -55,16 +56,17 @@ typedef struct
   bool bUseIFramesAsSyncPoint; /*!< Allow decoder to sync on I frames if configurations' nals are presents */
   bool bUseEarlyCallback; /*!< Lowlat phase 2. This only makes sense with special support for hw synchro */
   AL_EDecInputMode eInputMode; /* Send stream data by decoding unit or feed the library enough data and let it find the units. */
+
 }AL_TDecSettings;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Retrieves the default settings
    \param[out] pSettings Pointer to TDecSettings structure that receives
    default Settings.
 *****************************************************************************/
 void AL_DecSettings_SetDefaults(AL_TDecSettings* pSettings);
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Checks that all decoding parameters are valid
    \param[in] pSettings Pointer to TDecSettings to be checked
    \param[in] pOut Optional standard stream on which verbose messages are
@@ -74,24 +76,24 @@ void AL_DecSettings_SetDefaults(AL_TDecSettings* pSettings);
    the number of invalid parameters found (true);
    and this Settings can not be used with IP encoder.
 *****************************************************************************/
-int AL_DecSettings_CheckValidity(AL_TDecSettings const* pSettings, FILE* pOut);
+int32_t AL_DecSettings_CheckValidity(AL_TDecSettings const* pSettings, FILE* pOut);
 
-/**************************************************************************//*!
+/******************************************************************************
    \brief Checks that decoding parameters are coherent between them.
    When incoherent parameter are found, the function automatically correct them.
    \param[in] pSettings Pointer to TDecSettings to be checked
    \param[in] pOut Optional standard stream on which verbose messages are
    written.
    \return 0 if no incoherency
-           the number of incoherency if incoherency were found
-           -1 if a fatal incoherency was found
+           > 0 (the number of incoherency) if incoherency were found
+           < 0 if a fatal incoherency was found
    Since the function automatically apply correction, the Settings can be then used
    with IP decoder.
  *****************************************************************************/
-int AL_DecSettings_CheckCoherency(AL_TDecSettings* pSettings, FILE* pOut);
-/*@}*/
+int32_t AL_DecSettings_CheckCoherency(AL_TDecSettings* pSettings, FILE* pOut);
+/*!@}*/
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Checks that decoder output settings are valid
    \param[in] pDecOutSettings Pointer to TDecOutputSettings to be checked
    \param[in] eCodec Codec
@@ -102,4 +104,4 @@ int AL_DecSettings_CheckCoherency(AL_TDecSettings* pSettings, FILE* pOut);
    the number of invalid parameters found (true) and they can not be used
    with IP decoder.
 *****************************************************************************/
-int AL_DecOutputSettings_CheckValidity(AL_TDecOutputSettings const* pDecOutSettings, AL_ECodec eCodec, FILE* pOut);
+int32_t AL_DecOutputSettings_CheckValidity(AL_TDecOutputSettings const* pDecOutSettings, AL_ECodec eCodec, FILE* pOut);

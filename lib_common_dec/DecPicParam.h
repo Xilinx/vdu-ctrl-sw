@@ -1,13 +1,6 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-/****************************************************************************
-   -----------------------------------------------------------------------------
- **************************************************************************//*!
-   \addtogroup lib_base
-   @{
-   \file
- *****************************************************************************/
 #pragma once
 
 #include "lib_rtos/types.h"
@@ -56,7 +49,7 @@ static const AL_TDecBufIDs tEmptyBufIDs =
   0xFF, 0xFF,
 };
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Slice Parameters : Mimics structure for IP registers
 *****************************************************************************/
 typedef struct AL_TDecPictParam
@@ -115,7 +108,7 @@ typedef struct AL_TDecPictParam
 }AL_TDecPicParam;
 
 /****************************************************************************/
-typedef struct AL_TPictBuffers
+typedef struct AL_TDecBuffers
 {
   TBuffer tCompData;
   TBuffer tCompMap;
@@ -131,29 +124,68 @@ typedef struct AL_TPictBuffers
   TBuffer tMV;
   TBuffer tWP;
 
+  uint32_t uBitdepth;
   uint32_t uPitch;
 
-}AL_TDecPicBuffers;
+}AL_TDecBuffers;
 
 /****************************************************************************/
-typedef struct AL_TDecPicBufferAddrs
+typedef struct AL_TMvdTraceBufs
+{
+  AL_PADDR uDfeStreamStartPos;
+  AL_PADDR uDfeStreamEndPos;
+  uint32_t uDcpOffset;
+  uint32_t uDcpWrBinPos;
+  uint32_t uDcpUsedSize;
+  uint32_t uDcpTotalSize;
+  AL_PADDR uDcpBaseAddrForDbe[2];
+
+  uint32_t uSegBaseOffset;
+  uint32_t uSegSize;
+
+  TBuffer* ptMBI_rd0_buf;
+  TBuffer* ptMBI_rd1_buf;
+  TBuffer* ptMBI_rd2_buf;
+  TBuffer* ptMBI_wr_buf;
+
+  TBuffer* ptSeg_Src_buf;
+  TBuffer* ptSeg_Dst_buf;
+
+  AL_TAddress tSrcCoeffProbs;
+  AL_TAddress tSrcModeProbs;
+  AL_TAddress tDstCoeffProbs;
+  AL_TAddress tDstModeProbs;
+  uint32_t uCoeffProbSize;
+  uint32_t uModeProbSize;
+
+  /* ref frames */
+  AL_TBuffer* ptRefFrames[10]; /* 8 should actually be enough*/
+}AL_TMvdTraceBufs;
+/****************************************************************************/
+typedef struct AL_TDecPictBufferAddrs
+{
+  AL_PADDR pRecY;
+  AL_PADDR pRecC1;
+  AL_PADDR pRecFbcMapY;
+  AL_PADDR pRecFbcMapC1;
+  uint32_t uBitdepth;
+  uint32_t uPitch;
+}AL_TDecPictBufferAddrs;
+
+/****************************************************************************/
+typedef struct AL_TDecBufferAddrs
 {
   AL_PADDR pCompData;
   AL_PADDR pCompMap;
   AL_PADDR pListRef;
   AL_PADDR pStream;
   uint32_t uStreamSize;
-  AL_PADDR pRecY;
-  AL_PADDR pRecC1;
-  AL_PADDR pRecFbcMapY;
-  AL_PADDR pRecFbcMapC1;
-  uint32_t uPitch;
   AL_PADDR pScl;
   AL_PADDR pPoc;
   AL_PADDR pMV;
   AL_PADDR pWP;
-
-}AL_TDecPicBufferAddrs;
+  AL_TDecPictBufferAddrs tDecBuffers;
+}AL_TDecBufferAddrs;
 
 /*****************************************************************************/
 typedef uint8_t AL_TDecPicState;
@@ -180,7 +212,3 @@ typedef struct AL_TDecPicStatus
   uint32_t uCRC;
   AL_TDecPicState tDecPicState;
 }AL_TDecPicStatus;
-
-/*****************************************************************************/
-
-/*@}*/

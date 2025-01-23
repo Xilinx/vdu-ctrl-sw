@@ -1,35 +1,33 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-/****************************************************************************
-   -----------------------------------------------------------------------------
- **************************************************************************//*!
+/******************************************************************************
    \addtogroup lib_decode_hls
-   @{
+   !@{
    \file
  *****************************************************************************/
 
 #pragma once
 
 #include "I_PictMngr.h"
-#include "lib_common/SliceHeader.h"
+#include "lib_common/AvcHeaders.h"
 #include "lib_common_dec/DecPicParam.h"
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Sets the POC of the current decoded frame
    \param[in] pCtx   Pointer to a Picture manager context object
    \param[in] pSlice slice header of the current decoded slice
 *****************************************************************************/
 void AL_AVC_PictMngr_SetCurrentPOC(AL_TPictMngrCtx* pCtx, AL_TAvcSliceHdr const* pSlice);
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Sets the picture structure of the current decoded frame
    \param[in] pCtx       Pointer to a Picture manager context object
    \param[in] ePicStruct Picture structure
 *****************************************************************************/
 void AL_AVC_PictMngr_SetCurrentPicStruct(AL_TPictMngrCtx* pCtx, AL_EPicStruct ePicStruct);
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief This function updates the reconstructed resolution information
    \param[in] pCtx Pointer to a Picture manager context object
    \param[in] pCropInfo Pointer to Cropping information
@@ -37,7 +35,7 @@ void AL_AVC_PictMngr_SetCurrentPicStruct(AL_TPictMngrCtx* pCtx, AL_EPicStruct eP
 *****************************************************************************/
 void AL_AVC_PictMngr_UpdateRecInfo(AL_TPictMngrCtx* pCtx, AL_TCropInfo const* pCropInfo, AL_EPicStruct ePicStruct);
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief This function updates the Picture Manager context each time a picture have been parsed.
    \param[in] pCtx            Pointer to a Picture manager context object
    \param[in] bClearRef       Specifies if the reference pool picture is cleared
@@ -45,13 +43,13 @@ void AL_AVC_PictMngr_UpdateRecInfo(AL_TPictMngrCtx* pCtx, AL_TCropInfo const* pC
 *****************************************************************************/
 void AL_AVC_PictMngr_EndParsing(AL_TPictMngrCtx* pCtx, bool bClearRef, AL_EMarkingRef eMarkingFlag);
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief This function clean the DPB from unwanted pictures
    \param[in] pCtx            Pointer to a Picture manager context object
 *****************************************************************************/
 void AL_AVC_PictMngr_CleanDPB(AL_TPictMngrCtx* pCtx);
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Retrieves all buffers (input and output) required to decode the current slice
    \param[in]  pCtx          Pointer to a Picture manager context object
    \param[in]  pPP           Pointer to the current picture parameters
@@ -66,9 +64,9 @@ void AL_AVC_PictMngr_CleanDPB(AL_TPictMngrCtx* pCtx);
    \return If the function succeeds the return value is nonzero (true)
         If the function fails the return value is zero (false)
 *****************************************************************************/
-bool AL_AVC_PictMngr_GetBuffers(AL_TPictMngrCtx const* pCtx, AL_TDecSliceParam const* pSP, TBuffer* pListVirtAddr, TBuffer* pListAddr, TBufferPOC* pPOC, TBufferMV* pMV, AL_TRecBuffers* pRecs);
+bool AL_AVC_PictMngr_GetBuffers(AL_TPictMngrCtx* pCtx, AL_TDecSliceParam const* pSP, TBuffer* pListVirtAddr, TBuffer* pListAddr, TBufferPOC* pPOC, TBufferMV* pMV, AL_TRecBuffers* pRecs);
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Initializes the reference picture list for the current slice
    \param[in]  pCtx     Pointer to a Picture manager context object
    \param[in]  pSlice   Current slice header
@@ -76,14 +74,14 @@ bool AL_AVC_PictMngr_GetBuffers(AL_TPictMngrCtx const* pCtx, AL_TDecSliceParam c
 *****************************************************************************/
 void AL_AVC_PictMngr_InitPictList(AL_TPictMngrCtx const* pCtx, AL_TAvcSliceHdr const* pSlice, TBufferListRef* pListRef);
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Initializes fill Gap in Frame num
    \param[in]  pCtx     Pointer to a Picture manager context object
    \param[in]  pSlice   Current slice header
 *****************************************************************************/
 void AL_AVC_PictMngr_Fill_Gap_In_FrameNum(AL_TPictMngrCtx* pCtx, AL_TAvcSliceHdr const* pSlice);
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Reorders the reference picture list of the current slice
    \param[in]     pCtx     Pointer to a Picture manager context object
    \param[in]     pSlice   Current slice header
@@ -91,12 +89,12 @@ void AL_AVC_PictMngr_Fill_Gap_In_FrameNum(AL_TPictMngrCtx* pCtx, AL_TAvcSliceHdr
 *****************************************************************************/
 void AL_AVC_PictMngr_ReorderPictList(AL_TPictMngrCtx const* pCtx, AL_TAvcSliceHdr const* pSlice, TBufferListRef* pListRef);
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Retrieves the number of really existing reference pictures
    \param[in] pCtx     Pointer to a Picture manager context object
    \param[in] pListRef The reference list of the current slice
    \return the number of really existing reference pictures
 *****************************************************************************/
-int AL_AVC_PictMngr_GetNumExistingRef(AL_TPictMngrCtx const* pCtx, TBufferListRef const* pListRef);
+int32_t AL_AVC_PictMngr_GetNumExistingRef(AL_TPictMngrCtx const* pCtx, TBufferListRef const* pListRef);
 
-/*@}*/
+/*!@}*/

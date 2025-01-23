@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include <fstream>
@@ -18,11 +18,11 @@ using namespace std;
 class StreamMd5Calculator : public IFrameSink, Md5Calculator
 {
 public:
-  StreamMd5Calculator(std::string& path) :
+  StreamMd5Calculator(std::string const& path) :
     Md5Calculator(path)
   {}
 
-  ~StreamMd5Calculator()
+  ~StreamMd5Calculator(void)
   {
     if(IsFileOpen())
     {
@@ -38,13 +38,13 @@ public:
     {
       uint8_t* pStreamData = AL_Buffer_GetData(pBuf);
 
-      for(int i = 0; i < pMeta->uNumSection; i++)
+      for(int32_t i = 0; i < pMeta->uNumSection; i++)
         m_MD5.Update(pStreamData + pMeta->pSections[i].uOffset, pMeta->pSections[i].uLength);
     }
   }
 };
 
-IFrameSink* createStreamMd5Calculator(std::string path)
+IFrameSink* createStreamMd5Calculator(std::string const& path)
 {
   return new StreamMd5Calculator(path);
 }

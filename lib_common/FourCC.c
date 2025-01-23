@@ -1,8 +1,8 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_common/FourCC.h"
-#include "lib_assert/al_assert.h"
+#include "lib_rtos/lib_rtos.h"
 
 /* FOURCC from chars */
 #define FOURCC2(A, B, C, D) ((TFourCC)(((uint32_t)((A))) \
@@ -27,13 +27,15 @@ static const TFourCCMapping FourCCMappings[] =
   , AL_FOURCC_MAPPING(FOURCC2('Y', 'V', '1', '2'), AL_CHROMA_4_2_0, AL_ALPHA_MODE_DISABLED, 8, AL_FB_RASTER, AL_PLANE_MODE_PLANAR, AL_COMPONENT_ORDER_YVU, AL_SAMPLE_PACK_MODE_BYTE, false, false)
   , AL_FOURCC_MAPPING(FOURCC2('I', '4', '2', '2'), AL_CHROMA_4_2_2, AL_ALPHA_MODE_DISABLED, 8, AL_FB_RASTER, AL_PLANE_MODE_PLANAR, AL_COMPONENT_ORDER_YUV, AL_SAMPLE_PACK_MODE_BYTE, false, false)
   , AL_FOURCC_MAPPING(FOURCC2('Y', 'V', '1', '6'), AL_CHROMA_4_2_2, AL_ALPHA_MODE_DISABLED, 8, AL_FB_RASTER, AL_PLANE_MODE_PLANAR, AL_COMPONENT_ORDER_YVU, AL_SAMPLE_PACK_MODE_BYTE, false, false)
-  , AL_FOURCC_MAPPING(FOURCC2('Y', 'U', 'Y', '2'), AL_CHROMA_4_2_2, AL_ALPHA_MODE_DISABLED, 8, AL_FB_RASTER, AL_PLANE_MODE_INTERLEAVED, AL_COMPONENT_ORDER_YUYV, AL_SAMPLE_PACK_MODE_PACKED, false, false)
+  , AL_FOURCC_MAPPING(FOURCC2('Y', 'U', 'Y', '2'), AL_CHROMA_4_2_2, AL_ALPHA_MODE_DISABLED, 8, AL_FB_RASTER, AL_PLANE_MODE_INTERLEAVED, AL_COMPONENT_ORDER_YUYV, AL_SAMPLE_PACK_MODE_BYTE, false, false)
+  , AL_FOURCC_MAPPING(FOURCC2('Y', 'U', 'Y', '0'), AL_CHROMA_4_2_0, AL_ALPHA_MODE_DISABLED, 8, AL_FB_RASTER, AL_PLANE_MODE_INTERLEAVED, AL_COMPONENT_ORDER_YUYV, AL_SAMPLE_PACK_MODE_BYTE, false, false)
   , AL_FOURCC_MAPPING(FOURCC2('I', '4', '4', '4'), AL_CHROMA_4_4_4, AL_ALPHA_MODE_DISABLED, 8, AL_FB_RASTER, AL_PLANE_MODE_PLANAR, AL_COMPONENT_ORDER_YUV, AL_SAMPLE_PACK_MODE_BYTE, false, false)
 
   // planar: 10b
   , AL_FOURCC_MAPPING(FOURCC2('I', '0', 'A', 'L'), AL_CHROMA_4_2_0, AL_ALPHA_MODE_DISABLED, 10, AL_FB_RASTER, AL_PLANE_MODE_PLANAR, AL_COMPONENT_ORDER_YUV, AL_SAMPLE_PACK_MODE_BYTE, false, false)
   , AL_FOURCC_MAPPING(FOURCC2('I', '2', 'A', 'L'), AL_CHROMA_4_2_2, AL_ALPHA_MODE_DISABLED, 10, AL_FB_RASTER, AL_PLANE_MODE_PLANAR, AL_COMPONENT_ORDER_YUV, AL_SAMPLE_PACK_MODE_BYTE, false, false)
-  , AL_FOURCC_MAPPING(FOURCC2('Y', 'U', 'V', 'P'), AL_CHROMA_4_2_2, AL_ALPHA_MODE_DISABLED, 10, AL_FB_RASTER, AL_PLANE_MODE_INTERLEAVED, AL_COMPONENT_ORDER_YUYV, AL_SAMPLE_PACK_MODE_PACKED, false, false)
+  , AL_FOURCC_MAPPING(FOURCC2('Y', 'U', 'V', 'P'), AL_CHROMA_4_2_2, AL_ALPHA_MODE_DISABLED, 10, AL_FB_RASTER, AL_PLANE_MODE_INTERLEAVED, AL_COMPONENT_ORDER_YUYV, AL_SAMPLE_PACK_MODE_BYTE, false, false)
+  , AL_FOURCC_MAPPING(FOURCC2('Y', 'U', 'V', 'O'), AL_CHROMA_4_2_0, AL_ALPHA_MODE_DISABLED, 10, AL_FB_RASTER, AL_PLANE_MODE_INTERLEAVED, AL_COMPONENT_ORDER_YUYV, AL_SAMPLE_PACK_MODE_BYTE, false, false)
   , AL_FOURCC_MAPPING(FOURCC2('I', '4', 'A', 'L'), AL_CHROMA_4_4_4, AL_ALPHA_MODE_DISABLED, 10, AL_FB_RASTER, AL_PLANE_MODE_PLANAR, AL_COMPONENT_ORDER_YUV, AL_SAMPLE_PACK_MODE_BYTE, false, false)
 
   // planar: 12b
@@ -119,7 +121,7 @@ static const TFourCCMapping FourCCMappings[] =
 
 };
 
-static int const FourCCMappingSize = sizeof(FourCCMappings) / sizeof(FourCCMappings[0]);
+static int32_t const FourCCMappingSize = sizeof(FourCCMappings) / sizeof(FourCCMappings[0]);
 
 /****************************************************************************/
 bool AL_GetPicFormat(TFourCC tFourCC, AL_TPicFormat* tPicFormat)
@@ -136,7 +138,7 @@ bool AL_GetPicFormat(TFourCC tFourCC, AL_TPicFormat* tPicFormat)
     }
   }
 
-  AL_Assert(0 && "Unknown fourCC");
+  Rtos_Assert(false && "Unknown fourCC");
 
   return false;
 }
@@ -161,7 +163,7 @@ TFourCC AL_GetFourCC(AL_TPicFormat tPictFormat)
       return pMapping->tfourCC;
   }
 
-  AL_Assert(0 && "Unknown picture format");
+  Rtos_Assert(false && "Unknown picture format");
 
   return 0;
 }
@@ -209,12 +211,12 @@ uint8_t AL_GetBitDepth(TFourCC tFourCC)
 }
 
 /****************************************************************************/
-int AL_GetPixelSize(TFourCC tFourCC)
+int32_t AL_GetPixelSize(TFourCC tFourCC)
 {
   if(tFourCC == FOURCC(Y410))
     return sizeof(uint32_t);
 
-  int iPixSize = (AL_GetBitDepth(tFourCC) > 8) ? sizeof(uint16_t) : sizeof(uint8_t);
+  int32_t iPixSize = (AL_GetBitDepth(tFourCC) > 8) ? sizeof(uint16_t) : sizeof(uint8_t);
 
   if(AL_IsInterleaved(tFourCC))
   {
@@ -228,7 +230,7 @@ int AL_GetPixelSize(TFourCC tFourCC)
 }
 
 /****************************************************************************/
-void AL_GetSubsampling(TFourCC fourcc, int* sx, int* sy)
+void AL_GetSubsampling(TFourCC fourcc, int32_t* sx, int32_t* sy)
 {
   switch(AL_GetChromaMode(fourcc))
   {
@@ -288,7 +290,7 @@ bool AL_IsTiled(TFourCC tFourCC)
 {
   AL_EFbStorageMode eStorageMode = AL_GetStorageMode(tFourCC);
 
-  if(eStorageMode == AL_FB_TILE_32x4 || eStorageMode == AL_FB_TILE_64x4)
+  if(eStorageMode != AL_FB_RASTER)
     return true;
 
   return false;
@@ -310,4 +312,15 @@ AL_EFbStorageMode AL_GetStorageMode(TFourCC tFourCC)
 {
   AL_TPicFormat tPicFormat;
   return AL_GetPicFormat(tFourCC, &tPicFormat) ? tPicFormat.eStorageMode : AL_FB_RASTER;
+}
+
+AL_StringFourCC AL_FourCCToString(TFourCC tFourCC)
+{
+  AL_StringFourCC tStringFourCC;
+  tStringFourCC.cFourcc[0] = tFourCC & 0xFF;
+  tStringFourCC.cFourcc[1] = (tFourCC & 0xFF00) >> 8;
+  tStringFourCC.cFourcc[2] = (tFourCC & 0xFF0000) >> 16;
+  tStringFourCC.cFourcc[3] = (tFourCC & 0xFF000000) >> 24;
+  tStringFourCC.cFourcc[4] = '\0';
+  return tStringFourCC;
 }

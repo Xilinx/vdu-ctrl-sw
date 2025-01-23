@@ -1,8 +1,7 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_rtos/lib_rtos.h"
-#include "lib_assert/al_assert.h"
 #include "lib_decode/DecSettingsInternal.h"
 #include "lib_common_dec/StreamSettingsInternal.h"
 #include "lib_common_dec/DecHardwareConfig.h"
@@ -17,7 +16,7 @@
 /***************************************************************************/
 void AL_DecSettings_SetDefaults(AL_TDecSettings* pSettings)
 {
-  AL_Assert(pSettings);
+  Rtos_Assert(pSettings);
   Rtos_Memset(pSettings, 0, sizeof(*pSettings));
 
   pSettings->iStackSize = 2;
@@ -44,11 +43,11 @@ void AL_DecSettings_SetDefaults(AL_TDecSettings* pSettings)
 }
 
 /***************************************************************************/
-int AL_DecSettings_CheckValidity(AL_TDecSettings const* pSettings, FILE* pOut)
+int32_t AL_DecSettings_CheckValidity(AL_TDecSettings const* pSettings, FILE* pOut)
 {
-  AL_Assert(pSettings);
+  Rtos_Assert(pSettings);
 
-  int err = 0;
+  int32_t err = 0;
 
   uint8_t uMaxNumCore = AL_DEC_NUM_CORES;
 
@@ -89,8 +88,8 @@ int AL_DecSettings_CheckValidity(AL_TDecSettings const* pSettings, FILE* pOut)
     }
   }
 
-  const int HStep = pSettings->tStream.iBitDepth == 10 ? 24 : 32; // In 10-bit there are 24 samples every 32 bytes
-  const int VStep = 1; // should be 2 in 4:2:0 but customer requires it to be 1 in any case !
+  const int32_t HStep = pSettings->tStream.iBitDepth == 10 ? 24 : 32; // In 10-bit there are 24 samples every 32 bytes
+  const int32_t VStep = 1; // should be 2 in 4:2:0 but customer requires it to be 1 in any case !
 
   if((pSettings->tOutputPosition.iX % HStep) != 0 || (pSettings->tOutputPosition.iY % VStep) != 0)
   {
@@ -114,13 +113,13 @@ int AL_DecSettings_CheckValidity(AL_TDecSettings const* pSettings, FILE* pOut)
 }
 
 /***************************************************************************/
-int AL_DecSettings_CheckCoherency(AL_TDecSettings* pSettings, FILE* pOut)
+int32_t AL_DecSettings_CheckCoherency(AL_TDecSettings* pSettings, FILE* pOut)
 {
-  AL_Assert(pSettings);
+  Rtos_Assert(pSettings);
 
-  int numIncoherency = 0;
+  int32_t numIncoherency = 0;
 
-  int iMinStackSize = 1;
+  int32_t iMinStackSize = 1;
 
   if(pSettings->iStackSize < iMinStackSize)
   {
@@ -131,7 +130,7 @@ int AL_DecSettings_CheckCoherency(AL_TDecSettings* pSettings, FILE* pOut)
 
   if(pSettings->iStreamBufSize > 0)
   {
-    int iAlignedStreamBufferSize = GetAlignedStreamBufferSize(pSettings->iStreamBufSize);
+    int32_t iAlignedStreamBufferSize = GetAlignedStreamBufferSize(pSettings->iStreamBufSize);
 
     if(iAlignedStreamBufferSize != pSettings->iStreamBufSize)
     {
@@ -144,7 +143,7 @@ int AL_DecSettings_CheckCoherency(AL_TDecSettings* pSettings, FILE* pOut)
   {
     if(pSettings->eCodec == AL_CODEC_AVC)
     {
-      static int const AVC_ROUND_DIM = 16;
+      static int32_t const AVC_ROUND_DIM = 16;
 
       if(((pSettings->tStream.tDim.iWidth % AVC_ROUND_DIM) != 0) || ((pSettings->tStream.tDim.iHeight % AVC_ROUND_DIM) != 0))
       {
@@ -159,21 +158,21 @@ int AL_DecSettings_CheckCoherency(AL_TDecSettings* pSettings, FILE* pOut)
   return numIncoherency;
 }
 
-int GetAlignedStreamBufferSize(int iStreamBufferSize)
+int32_t GetAlignedStreamBufferSize(int32_t iStreamBufferSize)
 {
   /* Buffer size must be aligned with hardware requests. For VP9/AV1, alignment to 32 bytes is required. For other
      codecs, 2048 or 4096 bytes alignment is required for dec1 units (for old or new decoder respectively).
   */
-  static int const BITSTREAM_REQUEST_SIZE = 4096;
+  static int32_t const BITSTREAM_REQUEST_SIZE = 4096;
   return RoundUp(iStreamBufferSize, BITSTREAM_REQUEST_SIZE);
 }
 
-int AL_DecOutputSettings_CheckValidity(AL_TDecOutputSettings const* pDecOutSettings, AL_ECodec eCodec, FILE* pOut)
+int32_t AL_DecOutputSettings_CheckValidity(AL_TDecOutputSettings const* pDecOutSettings, AL_ECodec eCodec, FILE* pOut)
 {
-  AL_Assert(pDecOutSettings);
+  Rtos_Assert(pDecOutSettings);
   (void)eCodec;
   (void)pOut;
-  int err = 0;
+  int32_t err = 0;
 
   return err;
 }

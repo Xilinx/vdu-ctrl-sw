@@ -1,14 +1,14 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-/**************************************************************************//*!
+/******************************************************************************
    \addtogroup Buffers
-   @{
+   !@{
    \file
  **************************************************************************/
 #pragma once
 
-typedef enum
+typedef enum AL_ESectionFlags
 {
   AL_SECTION_NO_FLAG = 0, /*!< no flag */
   AL_SECTION_SEI_PREFIX_FLAG = 0x1, /*!< this section data is from a SEI prefix */
@@ -19,15 +19,15 @@ typedef enum
   AL_SECTION_APP_FILLER_FLAG = 0x20, /*!< section data contains uninitialized filler data that should be filled by the application layer */
 }AL_ESectionFlags;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Stream section. Act as a kind of scatter gather list containing the
    stream parts inside a buffer.
 *****************************************************************************/
-typedef struct
+typedef struct AL_TStreamSection
 {
   uint32_t uOffset; /*!< Start offset of the section (in bytes from the beginning of the buffer) */
   uint32_t uLength; /*!< Length in bytes of the section */
   AL_ESectionFlags eFlags; /*!< Flags associated with the section; see macro AL_SECTION_xxxxx_FLAG */
 }AL_TStreamSection;
 
-/*@}*/
+/*!@}*/

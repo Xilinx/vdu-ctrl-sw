@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -7,7 +7,7 @@
 #include "lib_common/BufferAPI.h"
 #include "lib_common/Error.h"
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Parsing callback definition.
    It is called every time an input buffer as been parsed by the hardware.
    Callback parameters are:
@@ -16,25 +16,25 @@
    - pUserParam: user context provided in the callback structure
    - iParsingID: the id in the AL_HandleMetaData associated with the buffer
 *****************************************************************************/
-typedef struct
+typedef struct AL_CB_EndParsing
 {
-  void (* func)(AL_TBuffer* pParsedFrame, void* pUserParam, int iParsingID);
+  void (* func)(AL_TBuffer* pParsedFrame, void* pUserParam, int32_t iParsingID);
   void* userParam;
 }AL_CB_EndParsing;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Decoded callback definition.
    It is called every time a frame is decoded. Callback parameters are:
    - pDecodedFrame: the decoded frame.
    - pUserParam: user context provided in the callback structure
 *****************************************************************************/
-typedef struct
+typedef struct AL_CB_EndDecoding
 {
   void (* func)(AL_TBuffer* pDecodedFrame, void* pUserParam);
   void* userParam;
 }AL_CB_EndDecoding;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Display callback definition.
    It is called every time a frame can be displayed. Callback parameters are:
    - pDisplayedFrame: the frame to display
@@ -44,13 +44,13 @@ typedef struct
             that we reached the end of stream.
    - pUserParam: user context provided in the callback structure
 *****************************************************************************/
-typedef struct
+typedef struct AL_CB_Display
 {
   void (* func)(AL_TBuffer* pDisplayedFrame, AL_TInfoDecode* pInfo, void* pUserParam);
   void* userParam;
 }AL_CB_Display;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Resolution change callback definition.
    It is called for each frame resolution change (including the first frame
    resolution detection) and provides all information required to allocate
@@ -64,13 +64,13 @@ typedef struct
    - pCropInfo: Area that will have to be cropped from the decoded frames
    - pUserParam: user context provided in the callback structure
 *****************************************************************************/
-typedef struct
+typedef struct AL_CB_ResolutionFound
 {
-  AL_ERR (* func)(int BufferNumber, AL_TStreamSettings const* pSettings, AL_TCropInfo const* pCropInfo, void* pUserParam);
+  AL_ERR (* func)(int32_t BufferNumber, AL_TStreamSettings const* pSettings, AL_TCropInfo const* pCropInfo, void* pUserParam);
   void* userParam;
 }AL_CB_ResolutionFound;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Parsed SEI callback definition.
    It is called when a SEI is parsed. See Annex D.3 of ITU-T for the
    sei_payload syntax. Callback parameters are:
@@ -83,20 +83,20 @@ typedef struct
                    decoder failed to allocate memory for sei payload.
    - pUserParam: user context provided in the callback structure
 *****************************************************************************/
-typedef struct
+typedef struct AL_CB_ParsedSei
 {
-  void (* func)(bool bIsPrefix, int iPayloadType, uint8_t* pPayload, int iPayloadSize, void* pUserParam);
+  void (* func)(bool bIsPrefix, int32_t iPayloadType, uint8_t* pPayload, int32_t iPayloadSize, void* pUserParam);
   void* userParam;
 }AL_CB_ParsedSei;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Decoding error callback definition.
    It is called when an error occurs during decoding. User might decide to
    continue decoding or destroy the decoder depending on error.
    - eError: error type
    - pUserParam: user context provided in the callback structure
 *****************************************************************************/
-typedef struct
+typedef struct AL_CB_Error
 {
   void (* func)(AL_ERR eError, void* pUserParam);
   void* userParam;

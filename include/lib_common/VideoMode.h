@@ -1,12 +1,12 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Video Mode
 *****************************************************************************/
-typedef enum
+typedef enum AL_EVideoMode
 {
   AL_VM_PROGRESSIVE, /*!< Progressive */
   AL_VM_INTERLACED_TOP, /*!< interlaced top filed first */
@@ -22,10 +22,10 @@ static inline bool AL_IS_INTERLACED(AL_EVideoMode eVideoMode)
   return bIsInterlaced;
 }
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Sequence Mode
 *****************************************************************************/
-typedef enum
+typedef enum AL_ESequenceMode
 {
   AL_SM_UNKNOWN, /*!< unknown */
   AL_SM_PROGRESSIVE, /*!< progressive */

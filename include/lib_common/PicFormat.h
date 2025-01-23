@@ -1,58 +1,69 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-/**************************************************************************//*!
+/******************************************************************************
    \addtogroup PicFormat
 
    Describes the format of a YUV buffer
 
-   @{
+   !@{
    \file
 ******************************************************************************/
 #pragma once
 
 #include "lib_rtos/types.h"
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Struct for dimension
 *****************************************************************************/
-typedef struct
+typedef struct AL_TDimension
 {
   int32_t iWidth;
   int32_t iHeight;
 }AL_TDimension;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Struct for position
 *****************************************************************************/
-typedef struct
+typedef struct AL_TPosition
 {
   int32_t iX;
   int32_t iY;
 }AL_TPosition;
 
-/*************************************************************************//*!
+/*****************************************************************************
+   \brief Struct for direction
+*****************************************************************************/
+typedef struct AL_TDirection
+{
+  int32_t iTop;
+  int32_t iRight;
+  int32_t iBottom;
+  int32_t iLeft;
+}AL_TDirection;
+
+/*****************************************************************************
    \brief Struct for window
 *****************************************************************************/
-typedef struct
+typedef struct AL_TWindow
 {
   AL_TPosition tPos;
   AL_TDimension tDim;
 }AL_TWindow;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Struct for dimension
 *****************************************************************************/
-typedef struct
+typedef struct AL_TPhase
 {
   uint8_t Horizontal;
   uint8_t Vertical;
 }AL_TPhase;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Cropping Info on the YUV reconstructed
  *************************************************************************/
-typedef struct t_CropInfo
+typedef struct AL_TCropInfo
 {
   bool bCropping;         /*!< Cropping information present flag    */
   uint32_t uCropOffsetLeft;   /*!< Left   offset of the cropping window */
@@ -71,38 +82,43 @@ static inline void ResetCropInfo(AL_TCropInfo* pCropInfo)
   pCropInfo->uCropOffsetBottom = 0;
 }
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Chroma mode. Describes how many chroma samples we have relatively
    to the luma samples.
 *****************************************************************************/
-typedef enum
+typedef enum AL_EChromaMode
 {
   AL_CHROMA_MONO = 0, /*!< Monochrome */
   AL_CHROMA_4_0_0 = AL_CHROMA_MONO, /*!< 4:0:0 = Monochrome */
   AL_CHROMA_4_2_0 = 1, /*!< 4:2:0 chroma sampling */
   AL_CHROMA_4_2_2 = 2, /*!< 4:2:2 chroma sampling */
   AL_CHROMA_4_4_4 = 3, /*!< 4:4:4 chroma sampling */
+  AL_CHROMA_4_2_2_HORIZONTAL = 4, /*!< 4:2:2 chroma sampling but vertical (internal, used for 4:2:2 with rotation)*/
   AL_CHROMA_MAX_ENUM, /* sentinel */
 }AL_EChromaMode;
 
-/*************************************************************************//*!
+#define FB_TILE_32x4 1 << 0
+#define FB_TILE_64x4 1 << 1
+
+/*****************************************************************************
    \brief Frame buffer storage mode. It describes the scan order of the
    samples inside the frame buffer.
 *****************************************************************************/
-typedef enum
+typedef enum AL_EFbStorageMode
 {
-  AL_FB_RASTER,     /*!< Samples are stored in raster scan order */
-  AL_FB_TILE_32x4,  /*!< Samples are stored going raster inside 4x4 blocks, themselves inside 32x4 tiles */
-  AL_FB_TILE_64x4,  /*!< Samples are stored going raster inside 4x4 blocks, themselves inside 64x4 tiles */
+  AL_FB_RASTER = 0,     /*!< Samples are stored in raster scan order */
+  AL_FB_TILE_32x4 = 1,  /*!< Samples are stored going raster inside 4x4 blocks, themselves inside 32x4 tiles */
+  AL_FB_TILE_64x4 = 2,  /*!< Samples are stored going raster inside 4x4 blocks, themselves inside 64x4 tiles */
+
   AL_FB_MAX_ENUM, /* sentinel */
 }AL_EFbStorageMode;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Frame buffer plane mode. A plane is a contiguous memory chunk that
    can contain one or more components of the frame buffer. Components can be
    for instance Y/U/V, or R/G/B.
 *****************************************************************************/
-typedef enum
+typedef enum AL_EPlaneMode
 {
   AL_PLANE_MODE_PLANAR, /*!< Each component is stored its own separated plane */
   AL_PLANE_MODE_MONOPLANE = AL_PLANE_MODE_PLANAR,  /*!< There is only one component, and thus only one plane  */
@@ -115,13 +131,13 @@ AL_DEPRECATED_ENUM_VALUE(AL_EPlaneMode, AL_C_ORDER_U_V, AL_PLANE_MODE_PLANAR, "R
 AL_DEPRECATED_ENUM_VALUE(AL_EPlaneMode, AL_C_ORDER_V_U, AL_PLANE_MODE_PLANAR, "Renamed. Use AL_ORDER_PLANAR.");
 AL_DEPRECATED_ENUM_VALUE(AL_EPlaneMode, AL_C_ORDER_PACKED, AL_PLANE_MODE_INTERLEAVED, "Renamed. Use AL_ORDER_INTERLEAVED.");
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Frame buffer component order. In case of a planar frame buffer, as
    each component is stored in a different plane, it will describe the order
    of the planes. In case of a semiplanar or interleaved frame buffer, it
    will describe the order of component inside a plane.
 *****************************************************************************/
-typedef enum
+typedef enum AL_EComponentOrder
 {
   AL_COMPONENT_ORDER_YUV,
   AL_COMPONENT_ORDER_YVU,
@@ -141,11 +157,11 @@ typedef enum
   AL_COMPONENT_ORDER_MAX_ENUM, /* sentinel */
 }AL_EComponentOrder;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Frame buffer sample pack mode. Describes on how many bits each sample
    is stored.
 *****************************************************************************/
-typedef enum
+typedef enum AL_ESamplePackMode
 {
   AL_SAMPLE_PACK_MODE_BYTE, /*!< 8 bits samples stored on 8 bits, 10/12 on 16 bits */
   AL_SAMPLE_PACK_MODE_PACKED, /*!< n bits samples stored exactly on n bits */
@@ -153,11 +169,11 @@ typedef enum
   AL_SAMPLE_PACK_MODE_MAX_ENUM, /* sentinel */
 }AL_ESamplePackMode;
 
-/*************************************************************************//*!
+/*****************************************************************************
   \brief Frame buffer alpha mode. Describes if buffer contains alpha information,
   and if so, describes its position relatively to other samples.
 *************************************************************************/
-typedef enum
+typedef enum AL_EAlphaMode
 {
   AL_ALPHA_MODE_DISABLED, /*!< No alpha */
   AL_ALPHA_MODE_BEFORE, /*!< Alpha is stored before other components */
@@ -165,7 +181,7 @@ typedef enum
   AL_ALPHA_MODE_MAX_ENUM, /* sentinel */
 }AL_EAlphaMode;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Describes the format of a YUV buffer
 *****************************************************************************/
 typedef struct AL_TPicFormat
@@ -181,10 +197,10 @@ typedef struct AL_TPicFormat
   bool bMSB;
 }AL_TPicFormat;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Output type
  *************************************************************************/
-typedef enum
+typedef enum AL_EOutputType
 {
   AL_OUTPUT_PRIMARY,
   AL_OUTPUT_MAIN,
@@ -200,13 +216,13 @@ AL_EPlaneMode GetInternalBufPlaneMode(AL_EChromaMode eChromaMode);
 AL_ESamplePackMode GetInternalBufSamplePackMode(AL_EFbStorageMode eFbStorageMode, uint8_t uBitDepth);
 
 /****************************************************************************/
-int GetTileWidth(AL_EFbStorageMode eMode, uint8_t uBitDepth);
+int32_t GetTileWidth(AL_EFbStorageMode eMode, uint8_t uBitDepth);
 
 /****************************************************************************/
-int GetTileHeight(AL_EFbStorageMode eMode);
+int32_t GetTileHeight(AL_EFbStorageMode eMode);
 
 /****************************************************************************/
-int GetTileSize(AL_EFbStorageMode eMode, uint8_t uBitDepth);
+int32_t GetTileSize(AL_EFbStorageMode eMode, uint8_t uBitDepth);
 
 /****************************************************************************/
 bool IsRgbComponentOrder(AL_EComponentOrder eComponentOrder);
@@ -217,4 +233,31 @@ AL_TPicFormat GetDefaultPicFormat(void);
 /*****************************************************************************/
 bool IsTile(AL_EFbStorageMode eStorageMode);
 
-/*@}*/
+/****************************************************************************/
+bool Is10bPacked(AL_ESamplePackMode eSamplePackMode);
+
+/****************************************************************************/
+char const* AL_ChromaModeToString(AL_EChromaMode eChromaMode);
+
+/****************************************************************************/
+char const* AL_AlphaModeToString(AL_EAlphaMode eAlphaMode);
+
+/****************************************************************************/
+char const* AL_FbStorageModeToString(AL_EFbStorageMode eStorageMode);
+
+/****************************************************************************/
+char const* AL_PlaneModeToString(AL_EPlaneMode ePlaneMode);
+
+/****************************************************************************/
+char const* AL_ComponentOrderToString(AL_EComponentOrder eComponentOrder);
+
+/****************************************************************************/
+char const* AL_SamplePackModeToString(AL_ESamplePackMode eSamplePackMode);
+
+/****************************************************************************/
+char const* AL_CompressedToString(bool bIsCompressed);
+
+/****************************************************************************/
+char const* AL_MsbToString(bool bIsMSB);
+
+/*!@}*/

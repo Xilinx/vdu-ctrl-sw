@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -8,22 +8,20 @@
 #include <sstream>
 #include <iomanip>
 #include <queue>
+#include <vector>
 #include <map>
 #include <stdexcept>
 #include <iostream>
-#include "lib_rtos/types.h"
+#include "lib_app/TypeName.h"
 
-static inline bool ShouldShowAdvancedFeatures()
+extern "C"
 {
-  return true;
+#include "lib_rtos/types.h"
 }
-
 struct CommandLineParser
 {
-public:
-  CommandLineParser() = default;
-  explicit CommandLineParser(bool showAdvancedFeatures_) : showAdvancedFeatures{showAdvancedFeatures_} {};
-  explicit CommandLineParser(std::function<void(std::string)> onOptionParsed_, bool showAdvancedFeatures_) : onOptionParsed{onOptionParsed_}, showAdvancedFeatures{showAdvancedFeatures_} {};
+  explicit CommandLineParser(void) = default;
+  explicit CommandLineParser(std::function<void(std::string)> onOptionParsed_) : onOptionParsed{onOptionParsed_} {};
   void setErrorOnUnknown(bool errorOut)
   {
     errorOnUnknown = errorOut;
@@ -35,15 +33,14 @@ public:
     std::string type; /* type of the option */
     std::string desc; /* full formatted description with the name of the option */
     std::string desc_; /* description provided by the user verbatim */
-    bool advancedFeature = false;
     bool repeat = false;
   };
 
-  bool parse(int argc, char* argv[])
+  bool parse(int32_t argc, char* argv[])
   {
     deprecatedWordsParsed.clear();
 
-    for(int i = 1; i < argc; ++i)
+    for(int32_t i = 1; i < argc; ++i)
       words.push(argv[i]);
 
     while(!words.empty())
@@ -94,7 +91,7 @@ public:
     curSection = sectionName;
   }
 
-  void startDeprecatedSection()
+  void startDeprecatedSection(void)
   {
     startSection(DEPRECATED_SECTION);
   }
@@ -115,14 +112,14 @@ public:
     ss >> value;
 
     if(ss.fail() || ss.tellg() != std::streampos(-1))
-      throw std::runtime_error("Expected an integer, got '" + word + "'");
+      throw std::runtime_error("Expected an " + type_name<T>() + ", got '" + word + "'");
 
     return value;
   }
 
-  int readInt(std::string word)
+  int32_t readInt(std::string word)
   {
-    return readVal<int>(word);
+    return readVal<int32_t>(word);
   }
 
   uint32_t readUint(std::string word)
@@ -135,31 +132,31 @@ public:
     return readVal<double>(word);
   }
 
-  int popInt()
+  int32_t popInt(void)
   {
     auto word = popWord();
     return readInt(word);
   }
 
-  uint32_t popUint()
+  uint32_t popUint(void)
   {
     auto word = popWord();
     return readUint(word);
   }
 
-  AL_PADDR popPAddr()
+  AL_PADDR popPAddr(void)
   {
     auto word = popWord();
     return readVal<AL_PADDR>(word);
   }
 
-  double popDouble()
+  double popDouble(void)
   {
     auto word = popWord();
     return readDouble(word);
   }
 
-  std::string popWord()
+  std::string popWord(void)
   {
     if(words.empty())
       throw std::runtime_error("Unexpected end of command line, use -h to get help");
@@ -206,6 +203,30 @@ public:
   void addCustom(std::string name, VariableType* value, std::function<ParserRetType(std::string const &)> customParser, std::string desc_, std::string const& type = "")
   {
     setCustom_(name, value, customParser, desc_, type);
+  }
+
+  template<typename VariableType, typename Func>
+  void setCustomVector_(std::string name, std::vector<VariableType>& values, Func customParser, std::string desc_, std::string const& type)
+  {
+    Option o;
+    o.parser = [=, &values](std::string word)
+               {
+                 if(isOption(word))
+                   values.push_back((VariableType)customParser(popWord()));
+                 else
+                   values.push_back((VariableType)customParser(word));
+               };
+    o.type = type;
+    o.desc_ = desc_;
+    o.desc = makeDescription(name, type, desc_);
+    insertOption(name, o);
+  }
+
+  // add an option with a user-provided value parsing function
+  template<typename VariableType, typename ParserRetType>
+  void addCustom(std::string name, std::vector<VariableType>& values, std::function<ParserRetType(std::string const &)> customParser, std::string desc_, std::string const& type = "")
+  {
+    setCustomVector_(name, values, customParser, desc_, type);
   }
 
   template<typename T>
@@ -307,6 +328,24 @@ public:
     insertOption(name, o);
   }
 
+  template<typename T>
+  void addStringWithAFlag(std::string name, std::string* sValue, std::string desc_, T* flag, T tValue = (T) 1)
+  {
+    Option o;
+    o.type = "string";
+    o.desc_ = desc_;
+    o.desc = makeDescription(name, o.type, desc_);
+    o.parser = [=](std::string word)
+               {
+                 if(isOption(word))
+                   *sValue = popWord();
+                 else
+                   *sValue = word;
+                 *flag = tValue;
+               };
+    insertOption(name, o);
+  }
+
   void addStringVector(std::string name, std::vector<std::string>* vec, std::string desc_)
   {
     Option o;
@@ -324,10 +363,16 @@ public:
     insertOption(name, o);
   }
 
+  void addNote(std::string name, std::string desc)
+  {
+    insertNote(name, desc);
+  }
+
   std::map<std::string, Option> options;
   std::map<std::string, std::string> descs;
   std::map<std::string, std::string> sections;
   std::map<std::string, std::string> types;
+  std::map<std::string, std::string> notes;
   std::string curSection = "";
   std::vector<std::string> displayOrder;
   std::deque<Option> positionals;
@@ -347,12 +392,6 @@ public:
         std::cout << std::endl;
         std::cout << "  [" << section << "]" << std::endl;
       }
-
-      std::string item;
-      std::stringstream ss(command);
-
-      if(getline(ss, item, ',') && options.at(item).advancedFeature && !showAdvancedFeatures)
-        continue;
 
       std::cout << "  " << descs.at(command) << std::endl;
     }
@@ -393,9 +432,7 @@ public:
       auto name = o_.first;
       auto& o = o_.second;
       auto section = sections.at(name);
-
-      if(o.advancedFeature && !showAdvancedFeatures)
-        continue;
+      std::string note = notes.count(name) == 1 ? notes.at(name) : "";
 
       if(!first)
         std::cout << ", " << std::endl;
@@ -404,34 +441,14 @@ public:
       std::cout << "\"name\":\"" << name << "\"," << std::endl;
       std::cout << "\"type\":\"" << jsonEscape(o.type) << "\"," << std::endl;
       std::cout << "\"description\":\"" << jsonEscape(o.desc_) << "\"," << std::endl;
+
+      if(!note.empty())
+        std::cout << "\"notes\":\"" << note << "\"," << std::endl;
       std::cout << "\"section\":\"" << section << "\"" << std::endl;
       std::cout << "}";
     }
 
     std::cout << std::endl << "]" << std::endl;
-  }
-
-  // You can also use "X,Y,Z unrelated option to set multiple option as advanced at the same time"
-  void setAdvanced(std::string name)
-  {
-    std::string item;
-    std::stringstream ss(name);
-
-    if(isOption(name))
-    {
-      int num_opt = 0;
-
-      while(getline(ss, item, ','))
-      {
-        ++num_opt;
-        options[item].advancedFeature = true;
-      }
-
-      if(num_opt == 0)
-        throw std::runtime_error("You need to call setAdvanced on an existing option");
-    }
-    else
-      throw std::runtime_error("You can't set a positional argument as advanced as it would change the place of all the other positional arguments.");
   }
 
 private:
@@ -455,6 +472,11 @@ private:
     types[name] = o.type;
     sections[name] = curSection;
     displayOrder.push_back(name);
+  }
+
+  void insertNote(std::string name, std::string desc)
+  {
+    notes[name] = desc;
   }
 
   std::string makeDescription(std::string word, std::string type, std::string desc)
@@ -493,7 +515,6 @@ private:
   std::function<void(std::string)> onOptionParsed = [](std::string) {};
   std::vector<std::string> deprecatedWordsParsed;
   bool errorOnUnknown = true;
-  bool showAdvancedFeatures = true;
   static const std::string DEPRECATED_SECTION;
 };
 

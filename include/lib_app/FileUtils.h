@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -10,20 +10,20 @@
 void formatFolderPath(std::string& folderPath);
 
 /****************************************************************************/
-std::string combinePath(const std::string& folder, const std::string& filename);
+std::string combinePath(std::string const& folder, std::string const& filename);
 
 /****************************************************************************/
-std::string createFileNameWithID(const std::string& path, const std::string& motif, const std::string& extension, int iFrameID);
+std::string createFileNameWithID(std::string const& path, std::string const& motif, std::string const& extension, int32_t iFrameID);
 
 /****************************************************************************/
 bool checkFolder(std::string folderPath);
 
 /****************************************************************************/
-bool checkFileAvailability(std::string folderPath, std::regex regex);
+bool checkFileAvailability(std::string folderPath, std::regex const& regex);
 
 /****************************************************************************/
 #define FROM_HEX_ERROR -1
-int FromHex2(char a, char b);
+int32_t FromHex2(char a, char b);
 
 /****************************************************************************/
-int FromHex4(char a, char b, char c, char d);
+int32_t FromHex4(char a, char b, char c, char d);

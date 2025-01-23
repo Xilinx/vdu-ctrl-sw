@@ -1,11 +1,9 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-/****************************************************************************
-   -----------------------------------------------------------------------------
- **************************************************************************//*!
+/******************************************************************************
    \addtogroup lib_decode_hls
-   @{
+   !@{
    \file
  *****************************************************************************/
 
@@ -16,13 +14,13 @@
 
 #include "lib_common_dec/RbspParser.h"
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief This function returns a pointer to the Nal data cleaned of the AE bytes
    \param[in]  pBufNoAE  Pointer to the buffer receiving the nal data without the antiemulated bytes
    \param[in]  pStream   Pointer to the circular stream buffer
    \param[in]  uLength   Maximum bytes's number to be parsed
 *****************************************************************************/
-static uint32_t AL_sCount_AntiEmulBytes(TCircBuffer* pStream, uint32_t uLength)
+static uint32_t AL_sCount_AntiEmulBytes(AL_TCircBuffer* pStream, uint32_t uLength)
 {
   uint8_t uSCDetect = 0;
   uint32_t uNumAE = 0;
@@ -66,17 +64,17 @@ static uint32_t AL_sCount_AntiEmulBytes(TCircBuffer* pStream, uint32_t uLength)
 }
 
 /*****************************************************************************/
-uint32_t GetNonVclSize(TCircBuffer* pBufStream)
+uint32_t GetNonVclSize(AL_TCircBuffer* pBufStream)
 {
-  int iNumZeros = 0;
-  int iNumNALFound = 0;
+  int32_t iNumZeros = 0;
+  int32_t iNumNALFound = 0;
   uint8_t* pParseBuf = pBufStream->tMD.pVirtualAddr;
   uint32_t uMaxSize = pBufStream->tMD.uSize;
   uint32_t uLengthNAL = 0;
-  int iOffset = pBufStream->iOffset;
-  int iAvailSize = pBufStream->iAvailSize;
+  int32_t iOffset = pBufStream->iOffset;
+  int32_t iAvailSize = pBufStream->iAvailSize;
 
-  for(int i = iOffset; i < iOffset + iAvailSize; ++i)
+  for(int32_t i = iOffset; i < iOffset + iAvailSize; ++i)
   {
     uint8_t uRead = pParseBuf[i % uMaxSize];
 
@@ -113,7 +111,7 @@ static void InitNonVclBuf(AL_TDecCtx* pCtx)
   {
     Rtos_Free(pCtx->BufNoAE.tMD.pVirtualAddr);
     pCtx->BufNoAE.tMD.pVirtualAddr = (uint8_t*)Rtos_Malloc(uLengthNAL);
-    AL_Assert(pCtx->BufNoAE.tMD.pVirtualAddr);
+    Rtos_Assert(pCtx->BufNoAE.tMD.pVirtualAddr);
     pCtx->BufNoAE.tMD.uSize = uLengthNAL;
   }
 
@@ -121,10 +119,10 @@ static void InitNonVclBuf(AL_TDecCtx* pCtx)
 }
 
 /*****************************************************************************/
-static uint32_t GetSliceHdrSize(AL_TRbspParser* pRP, TCircBuffer* pBufStream)
+static uint32_t GetSliceHdrSize(AL_TRbspParser* pRP, AL_TCircBuffer* pBufStream)
 {
   uint32_t uLengthNAL = (offset(pRP) + 7) >> 3;
-  int iNumAE = AL_sCount_AntiEmulBytes(pBufStream, uLengthNAL);
+  int32_t iNumAE = AL_sCount_AntiEmulBytes(pBufStream, uLengthNAL);
   return uLengthNAL + iNumAE;
 }
 
@@ -138,18 +136,18 @@ void UpdateContextAtEndOfFrame(AL_TDecCtx* pCtx)
   pCtx->tCurrentFrameCtx.uNumSlice = 0;
 
   Rtos_Memset(&pCtx->PoolPP[pCtx->uToggle], 0, sizeof(AL_TDecPicParam));
-  Rtos_Memset(&pCtx->PoolPB[pCtx->uToggle], 0, sizeof(AL_TDecPicBuffers));
+  Rtos_Memset(&pCtx->PoolPB[pCtx->uToggle], 0, sizeof(AL_TDecBuffers));
   AL_SET_DEC_OPT(&pCtx->PoolPP[pCtx->uToggle], IntraOnly, 1);
 }
 
 /*****************************************************************************/
-void UpdateCircBuffer(AL_TRbspParser* pRP, TCircBuffer* pBufStream, int* pSliceHdrLength)
+void UpdateCircBuffer(AL_TRbspParser* pRP, AL_TCircBuffer* pBufStream, int32_t* pSliceHdrLength)
 {
   uint32_t uLengthNAL = GetSliceHdrSize(pRP, pBufStream);
 
   // remap stream offset
-  if(pRP->iTotalBitIndex % 8)
-    *pSliceHdrLength = 16 + (pRP->iTotalBitIndex % 8);
+  if(pRP->iCurrentBitIndex % 8)
+    *pSliceHdrLength = 16 + (pRP->iCurrentBitIndex % 8);
   else
     *pSliceHdrLength = 24;
   uLengthNAL -= (*pSliceHdrLength + 7) >> 3;
@@ -169,7 +167,7 @@ bool SkipNal(void)
 /*****************************************************************************/
 AL_TRbspParser getParserOnNonVclNal(AL_TDecCtx* pCtx, uint8_t* pBufNoAE, int32_t iBufNoAESize)
 {
-  TCircBuffer* pBufStream = &pCtx->Stream;
+  AL_TCircBuffer* pBufStream = &pCtx->Stream;
   AL_TRbspParser rp;
   InitRbspParser(pBufStream, pBufNoAE, iBufNoAESize, true, &rp);
   return rp;

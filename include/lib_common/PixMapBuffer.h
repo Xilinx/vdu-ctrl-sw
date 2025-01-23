@@ -1,9 +1,9 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-/**************************************************************************//*!
+/******************************************************************************
    \addtogroup Buffers
-   @{
+   !@{
    \file
  *****************************************************************************/
 #pragma once
@@ -11,7 +11,7 @@
 #include "lib_common/BufferPixMapMeta.h"
 #include "lib_common/BufferAPI.h"
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Creates an AL_TBuffer meant to store pixel planes.
    \param[in] pAllocator Pointer to an Allocator.
    \param[in] pCallBack is called after the buffer reference count reaches zero
@@ -24,6 +24,16 @@
 AL_TBuffer* AL_PixMapBuffer_Create(AL_TAllocator* pAllocator, PFN_RefCount_CallBack pCallBack, AL_TDimension tDim, TFourCC tFourCC);
 
 /*************************************************************************//*!
+   \brief Compute the size of the planes necessary to create a PixMapBuffer
+   \param[in] tDim Dimension of the picture (width and height in pixels).
+   \param[in] tPicFormat Picture format of the frame buffer.
+   \param[out] pPlanesSize List of the size of planes.
+   \param[out] iOutPixPitch Pitch of pixel planes.
+   \param[out] iOutMapPitch Pitch of map planes.
+*****************************************************************************/
+void AL_PixMapBuffer_ComputePlaneSizes(AL_TDimension tDim, AL_TPicFormat tPicFormat, size_t* pPlanesSize, int32_t* iOutPixPitch, int32_t* iOutMapPitch, uint8_t uWidthAlignment);
+
+/*************************************************************************//*!
    \brief Allocate a continuous memory chunk to store planes, and add the
    planes to the buffer
    \param[in] pBuf Pointer to the AL_TBuffer
@@ -34,7 +44,22 @@ AL_TBuffer* AL_PixMapBuffer_Create(AL_TAllocator* pAllocator, PFN_RefCount_CallB
    \return Return true if memory has been allocated and planes added, false
    otherwise
 *****************************************************************************/
-bool AL_PixMapBuffer_Allocate_And_AddPlanes(AL_TBuffer* pBuf, size_t zSize, const AL_TPlaneDescription* pPlDescriptions, int iNbPlanes, const char* name);
+bool AL_PixMapBuffer_Allocate_And_AddPlanes(AL_TBuffer* pBuf, size_t zSize, const AL_TPlaneDescription* pPlDescriptions, int32_t iNbPlanes, const char* name);
+
+/*************************************************************************//*!
+   \brief Creates an AL_TBuffer and allocate a continuous memory chunk
+   to store planes, and add the planes to the buffer
+   \param[in] pAllocator Pointer to an Allocator.
+   \param[in] pCallBack is called after the buffer reference count reaches zero
+   and the buffer can safely be reused.
+   \param[in] tAllocDim Dimension of the picture allocated (width and height in pixels).
+   \param[in] tDim Dimension of the picture (width and height in pixels).
+   \param[in] tPicFormat Picture format of the frame buffer.
+   \param[in] name The name of the buffer (For debug and allocation tracking purpose).
+   \return Return a pointer the AL_TBuffer created if successful, false
+   otherwise.
+*****************************************************************************/
+AL_TBuffer* AL_PixMapBuffer_Create_And_AddPlanes(AL_TAllocator* pAllocator, PFN_RefCount_CallBack pCallBack, AL_TDimension tAllocDim, AL_TDimension tDim, AL_TPicFormat tPicFormat, uint8_t uWidthAlignment, char const* name);
 
 /*************************************************************************//*!
    \brief Add an already allocated memory chunk to store planes, and add the
@@ -47,9 +72,9 @@ bool AL_PixMapBuffer_Allocate_And_AddPlanes(AL_TBuffer* pBuf, size_t zSize, cons
    \return Return true if memory chunk and associated planes have been added
    successfully, false otherwise
 *****************************************************************************/
-bool AL_PixMapBuffer_AddPlanes(AL_TBuffer* pBuf, AL_HANDLE hChunk, size_t zSize, const AL_TPlaneDescription* pPlDescriptions, int iNbPlanes);
+bool AL_PixMapBuffer_AddPlanes(AL_TBuffer* pBuf, AL_HANDLE hChunk, size_t zSize, const AL_TPlaneDescription* pPlDescriptions, int32_t iNbPlanes);
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Get the virtual address of a plane of a AL_TBuffer
    \param[in] pBuf Pointer to the AL_TBuffer
    \param[in] ePlaneId Type of plane
@@ -57,15 +82,15 @@ bool AL_PixMapBuffer_AddPlanes(AL_TBuffer* pBuf, AL_HANDLE hChunk, size_t zSize,
 *****************************************************************************/
 uint8_t* AL_PixMapBuffer_GetPlaneAddress(AL_TBuffer const* pBuf, AL_EPlaneId ePlaneId);
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Get the pitch of a plane of a AL_TBuffer
    \param[in] pBuf Pointer to the AL_TBuffer
    \param[in] ePlaneId Type of plane
    \return Returns the pitch of the specified plane if successful, 0 otherwise
 *****************************************************************************/
-int AL_PixMapBuffer_GetPlanePitch(AL_TBuffer const* pBuf, AL_EPlaneId ePlaneId);
+int32_t AL_PixMapBuffer_GetPlanePitch(AL_TBuffer const* pBuf, AL_EPlaneId ePlaneId);
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Get the dimension of the frame stored in the AL_TBuffer
    \param[in] pBuf Pointer to the AL_TBuffer
    \return Returns the dimension of the frame if successful, null dimension
@@ -73,7 +98,7 @@ int AL_PixMapBuffer_GetPlanePitch(AL_TBuffer const* pBuf, AL_EPlaneId ePlaneId);
 *****************************************************************************/
 AL_TDimension AL_PixMapBuffer_GetDimension(AL_TBuffer const* pBuf);
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Set the dimension of the frame stored in the AL_TBuffer
    \param[in] pBuf Pointer to the AL_TBuffer
    \param[in] tDim The new dimension
@@ -81,14 +106,14 @@ AL_TDimension AL_PixMapBuffer_GetDimension(AL_TBuffer const* pBuf);
 *****************************************************************************/
 bool AL_PixMapBuffer_SetDimension(AL_TBuffer* pBuf, AL_TDimension tDim);
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Get the FourCC of the frame stored in the AL_TBuffer
    \param[in] pBuf Pointer to the AL_TBuffer
    \return Returns the FourCC of the frame if successful, 0 otherwise
 *****************************************************************************/
 TFourCC AL_PixMapBuffer_GetFourCC(AL_TBuffer const* pBuf);
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Set the FourCC of the frame stored in the AL_TBuffer
    \param[in] pBuf Pointer to the AL_TBuffer
    \param[in] tFourCC The new FourCC
@@ -96,4 +121,4 @@ TFourCC AL_PixMapBuffer_GetFourCC(AL_TBuffer const* pBuf);
 *****************************************************************************/
 bool AL_PixMapBuffer_SetFourCC(AL_TBuffer* pBuf, TFourCC tFourCC);
 
-/*@}*/
+/*!@}*/

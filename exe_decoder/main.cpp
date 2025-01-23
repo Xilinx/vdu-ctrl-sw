@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include <algorithm>
@@ -23,6 +23,7 @@
 
 extern "C" {
 #include "lib_common/BufCommon.h"
+#include "lib_common/BufferAPI.h"
 #include "lib_common/BufferHandleMeta.h"
 #include "lib_common/BufferSeiMeta.h"
 #include "lib_common/DisplayInfoMeta.h"
@@ -42,6 +43,7 @@ extern "C" {
 #include "lib_app/SinkCrop.h"
 #include "lib_app/SinkCrcDump.h"
 #include "lib_app/SinkFrame.h"
+#include "lib_app/SinkYuvMd5.h"
 #include "lib_app/UnCompFrameReader.h"
 #include "lib_app/YuvIO.h"
 #include "lib_app/console.h"
@@ -49,7 +51,6 @@ extern "C" {
 #include "lib_app/plateform.h"
 #include "lib_app/timing.h"
 #include "lib_app/utils.h"
-
 #include <cassert>
 
 #include "CmdParser.h"
@@ -57,9 +58,7 @@ extern "C" {
 #include "InputLoader.h"
 #include "IpDevice.h"
 #include "SinkYuvCrc.h"
-#include "SinkYuvMd5.h"
 #include "HDRWriter.h"
-#include "lib_conv_yuv/lib_conv_yuv.h"
 
 using namespace std;
 
@@ -84,7 +83,7 @@ struct codec_error : public runtime_error
 };
 
 /******************************************************************************/
-static void ConvertFrameBuffer(AL_TBuffer* pInput, AL_TBuffer*& pOutput, int iBdOut, AL_TPosition const& tPos, TFourCC tOutFourCC)
+static void ConvertFrameBuffer(AL_TBuffer* pInput, AL_TBuffer*& pOutput, int32_t iBdOut, AL_TPosition const& tPos, TFourCC tOutFourCC)
 {
   (void)tPos;
   TFourCC tRecFourCC = AL_PixMapBuffer_GetFourCC(pInput);
@@ -147,10 +146,10 @@ public:
   void Configure(Config const& config);
   void ConfigureMainOutputWriters(AL_TDecOutputSettings const& tDecOutputSettings);
 
-  bool Process(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo, int iBitDepthAlloc, bool& bIsMainDisplay, bool& bNumFrameReached, bool bDecoderExists);
+  bool Process(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo, int32_t iBitDepthAlloc, bool& bIsMainDisplay, bool& bNumFrameReached, bool bDecoderExists);
 
 private:
-  void ProcessFrame(AL_TBuffer& tRecBuf, AL_TInfoDecode info, int iBdOut, TFourCC tFourCCOut);
+  void ProcessFrame(AL_TBuffer& tRecBuf, AL_TInfoDecode info, int32_t iBdOut, TFourCC tOutFourCC);
 
   void CopyMetaData(AL_TBuffer* pDstFrame, AL_TBuffer* pSrcFrame, AL_EMetaType eMetaType);
 
@@ -159,14 +158,13 @@ private:
 
   AL_EFbStorageMode eMainOutputStorageMode;
   bool bOutputWritersCreated = false;
-  int iBitDepth = 8;
+  int32_t iBitDepth = 8;
+  uint32_t uNumFrames = 0;
+  uint32_t uMaxFrames = UINT32_MAX;
+  uint32_t uFirstFrame = 0;
   TFourCC tOutputFourCC = FOURCC(NULL);
-  unsigned int NumFrames = 0;
-  unsigned int MaxFrames = UINT_MAX;
-  unsigned int FirstFrame = 0;
   TFourCC tInputFourCC = FOURCC(NULL);
 
-  int iNumFrameConceal = 0;
   bool bHasOutput = false;
   bool bEnableYuvOutput = false;
   std::shared_ptr<HDRWriter> pHDRWriter;
@@ -232,7 +230,7 @@ void DisplayManager::Configure(Config const& config)
 
   iBitDepth = config.iOutputBitDepth;
   tOutputFourCC = config.tOutputFourCC;
-  MaxFrames = config.iMaxFrames;
+  uMaxFrames = config.iMaxFrames;
 
   std::unique_ptr<IFrameSink> crcDump(createStreamCrcDump(config.sCrc));
   multisinkRaw->addSink(crcDump);
@@ -301,14 +299,14 @@ void DisplayManager::CopyMetaData(AL_TBuffer* pDstFrame, AL_TBuffer* pSrcFrame, 
 }
 
 /******************************************************************************/
-bool DisplayManager::Process(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo, int iBitDepthAlloc, bool& bIsMainDisplay, bool& bNumFrameReached, bool bDecoderExists)
+bool DisplayManager::Process(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo, int32_t iBitDepthAlloc, bool& bIsMainDisplay, bool& bNumFrameReached, bool bDecoderExists)
 {
   bNumFrameReached = false;
   bIsMainDisplay = (pInfo->eOutputID == AL_OUTPUT_MAIN || pInfo->eOutputID == AL_OUTPUT_POSTPROC);
 
   if(bDecoderExists)
   {
-    if(NumFrames < MaxFrames)
+    if(uFirstFrame <= uNumFrames && uNumFrames < uMaxFrames)
     {
       if(!AL_Buffer_GetData(pFrame))
         throw runtime_error("Data buffer is null");
@@ -323,14 +321,14 @@ bool DisplayManager::Process(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo, int iBit
       CopyMetaData(pDisplayFrame, pFrame, AL_META_TYPE_PIXMAP);
       CopyMetaData(pDisplayFrame, pFrame, AL_META_TYPE_DISPLAY_INFO);
 
-      int iCurrentBitDepth = max(pInfo->uBitDepthY, pInfo->uBitDepthC);
+      int32_t iCurrentBitDepth = max(pInfo->uBitDepthY, pInfo->uBitDepthC);
 
       if(iBitDepth == OUTPUT_BD_FIRST)
         iBitDepth = iCurrentBitDepth;
       else if(iBitDepth == OUTPUT_BD_ALLOC)
         iBitDepth = iBitDepthAlloc;
 
-      int iEffectiveBitDepth = iBitDepth == OUTPUT_BD_STREAM ? iCurrentBitDepth : iBitDepth;
+      int32_t iEffectiveBitDepth = iBitDepth == OUTPUT_BD_STREAM ? iCurrentBitDepth : iBitDepth;
 
       multisinkRaw->ProcessFrame(pDisplayFrame);
 
@@ -350,25 +348,25 @@ bool DisplayManager::Process(AL_TBuffer* pFrame, AL_TInfoDecode* pInfo, int iBit
             pHDRWriter->WriteHDRSEIs(pHDRMeta.eColourDescription, pHDRMeta.eTransferCharacteristics, pHDRMeta.eColourMatrixCoeffs, pHDRMeta.tHDRSEIs);
         }
         // TODO: increase only when last frame
-        DisplayFrameStatus(NumFrames);
+        DisplayFrameStatus(uNumFrames);
       }
     }
 
     if(bIsMainDisplay)
-      NumFrames++;
+      uNumFrames++;
   }
 
-  if(NumFrames >= MaxFrames)
+  if(uNumFrames >= uMaxFrames)
     bNumFrameReached = true;
 
   return bNumFrameReached;
 }
 
 /******************************************************************************/
-static void PrintHexdump(ostream* logger, uint8_t* data, int size)
+static void PrintHexdump(ostream* logger, uint8_t* data, int32_t size)
 {
-  int column = 0;
-  int toPrint = size;
+  int32_t column = 0;
+  int32_t toPrint = size;
 
   *logger << std::hex;
 
@@ -391,7 +389,7 @@ static void PrintHexdump(ostream* logger, uint8_t* data, int size)
 }
 
 /******************************************************************************/
-static void WriteSei(bool bIsPrefix, int iPayloadType, uint8_t* pPayload, int iPayloadSize, ostream* seiOut, int iNumFrame)
+static void WriteSei(bool bIsPrefix, int32_t iPayloadType, uint8_t* pPayload, int32_t iPayloadSize, ostream* seiOut, int32_t iNumFrame)
 {
   if(!seiOut)
     return;
@@ -408,7 +406,7 @@ static void WriteSei(bool bIsPrefix, int iPayloadType, uint8_t* pPayload, int iP
 }
 
 /******************************************************************************/
-static void WriteSyncSei(std::vector<AL_TSeiMetaData*> seis, ofstream* seiOut, int iNumFrame)
+static void WriteSyncSei(std::vector<AL_TSeiMetaData*> seis, ofstream* seiOut, int32_t iNumFrame)
 {
   if(!seis.empty())
   {
@@ -420,14 +418,6 @@ static void WriteSyncSei(std::vector<AL_TSeiMetaData*> seis, ofstream* seiOut, i
         WriteSei(pPayload->bPrefix, pPayload->type, pPayload->pData, pPayload->size, seiOut, iNumFrame);
     }
   }
-}
-
-/******************************************************************************/
-static string FourCCToString(TFourCC tFourCC)
-{
-  stringstream ss;
-  ss << static_cast<char>(tFourCC & 0xFF) << static_cast<char>((tFourCC & 0xFF00) >> 8) << static_cast<char>((tFourCC & 0xFF0000) >> 16) << static_cast<char>((tFourCC & 0xFF000000) >> 24);
-  return ss.str();
 }
 
 /******************************************************************************/
@@ -445,16 +435,16 @@ static string SequencePictureToString(AL_ESequenceMode sequencePicture)
 }
 
 /******************************************************************************/
-static void ShowStreamInfo(int BufferNumber, int BufferSize, AL_TStreamSettings const* pStreamSettings, AL_TCropInfo const* pCropInfo, TFourCC tFourCC, AL_TDimension outputDim)
+static void ShowStreamInfo(int32_t BufferNumber, int32_t BufferSize, AL_TStreamSettings const* pStreamSettings, AL_TCropInfo const* pCropInfo, TFourCC tFourCC, AL_TDimension outputDim)
 {
-  int iWidth = outputDim.iWidth;
-  int iHeight = outputDim.iHeight;
+  int32_t iWidth = outputDim.iWidth;
+  int32_t iHeight = outputDim.iHeight;
 
   stringstream ss;
   ss << "Resolution: " << iWidth << "x" << iHeight << endl;
-  ss << "FourCC: " << FourCCToString(tFourCC) << endl;
+  ss << "FourCC: " << AL_FourCCToString(tFourCC).cFourcc << endl;
   ss << "Profile: " << AL_GET_PROFILE_IDC(pStreamSettings->eProfile) << endl;
-  int iOutBitdepth = AL_GetBitDepth(tFourCC);
+  int32_t iOutBitdepth = AL_GetBitDepth(tFourCC);
 
   if(pStreamSettings->iLevel != -1)
     ss << "Level: " << pStreamSettings->iLevel << endl;
@@ -477,22 +467,29 @@ static void ShowStreamInfo(int BufferNumber, int BufferSize, AL_TStreamSettings 
 }
 
 /******************************************************************************/
-static int sConfigureDecBufPool(PixMapBufPool& SrcBufPool, AL_TPicFormat const& tPicFormat, AL_TDimension const& tDim, int iPitchY, bool bConfigurePlanarAndSemiplanar, bool bSetMultiChunk)
+static int32_t sConfigureDecBufPool(PixMapBufPool& SrcBufPool, AL_TPicFormat const& tPicFormat, AL_TDimension const& tDim, int32_t iPitchY, bool bConfigurePlanarAndSemiplanar, bool bSetMultiChunk)
 {
+  /* When using multichunk option, we over-allocate each plane. It ensures it makes a difference for
+     memory layout, compared to single-chunk mode. That way, we are sure SW/HW code access properly
+     to the different planes using the dedicated addresses, instead of recomputing an offset based on
+     resolution/chroma-mode...
+  */
+  const int32_t MULTICHUNK_ADDITIONAL_PLANE_SIZE = 2048;
+
   auto const tFourCC = AL_GetFourCC(tPicFormat);
   SrcBufPool.SetFormat(tDim, tFourCC);
 
   std::vector<AL_TPlaneDescription> vPlaneDesc;
-  int iOffset = 0;
+  int32_t iOffset = 0;
 
   AL_EPlaneId usedPlanes[AL_MAX_BUFFER_PLANES];
-  int iNbPlanes = AL_Plane_GetBufferPixelPlanes(tPicFormat, usedPlanes);
+  int32_t iNbPlanes = AL_Plane_GetBufferPixelPlanes(tPicFormat, usedPlanes);
 
   // Set pixels planes
   // -----------------
-  for(int iPlane = 0; iPlane < iNbPlanes; iPlane++)
+  for(int32_t iPlane = 0; iPlane < iNbPlanes; iPlane++)
   {
-    int iPitch = (usedPlanes[iPlane] == AL_PLANE_Y || usedPlanes[iPlane] == AL_PLANE_YUV) ? iPitchY : AL_GetChromaPitch(tFourCC, iPitchY);
+    int32_t iPitch = (usedPlanes[iPlane] == AL_PLANE_Y || usedPlanes[iPlane] == AL_PLANE_YUV) ? iPitchY : AL_GetChromaPitch(tFourCC, iPitchY);
     vPlaneDesc.push_back(AL_TPlaneDescription { usedPlanes[iPlane], iOffset, iPitch });
 
     /* We ensure compatibility with 420/422. Only required when we use prealloc configured for
@@ -506,7 +503,7 @@ static int sConfigureDecBufPool(PixMapBufPool& SrcBufPool, AL_TPicFormat const& 
 
     if(bSetMultiChunk)
     {
-      SrcBufPool.AddChunk(iOffset, vPlaneDesc);
+      SrcBufPool.AddChunk(iOffset + MULTICHUNK_ADDITIONAL_PLANE_SIZE, vPlaneDesc);
       vPlaneDesc.clear();
       iOffset = 0;
     }
@@ -526,32 +523,31 @@ public:
   ~DecoderContext();
   void CreateBaseDecoder(shared_ptr<I_IpDevice> device);
   AL_HDecoder GetBaseDecoderHandle() const { return hBaseDec; }
-  AL_ERR SetupBaseDecoderPool(int iBufferNumber, AL_TStreamSettings const* pStreamSettings, AL_TCropInfo const* pCropInfo);
+  AL_ERR SetupBaseDecoderPool(int32_t iBufferNumber, AL_TStreamSettings const* pStreamSettings, AL_TCropInfo const* pCropInfo);
 
   bool WaitExit(uint32_t uTimeout);
   void ReceiveFrameToDisplayFrom(DeviceType eDevice, AL_TBuffer* pFrame, AL_TInfoDecode* pInfo);
-  int GetNumConcealedFrame() const { return iNumFrameConceal; };
-  int GetNumDecodedFrames() const { return iNumDecodedFrames; };
+  int32_t GetNumConcealedFrame() const { return iNumFrameConceal; };
+  int32_t GetNumDecodedFrames() const { return iNumDecodedFrames; };
   std::unique_lock<mutex> LockDisplay() { return std::unique_lock<mutex>(hDisplayMutex); };
   void StopSendingBuffer() { LockDisplay(); bPushBackToDecoder = false; };
   void SetPushBackToDecoder() { bPushBackToDecoder = true; };
   bool CanSendBackBufferToDecoder() { return bPushBackToDecoder; };
   void ReceiveBaseDecoderDecodedFrame(AL_TBuffer* pFrame);
   void ManageError(AL_ERR eError);
-  void StoreSeiMetaData(AL_TBuffer* pParsedFrame, int iParsingId);
-  void PrintSei(bool bIsPrefix, int iPayloadType, uint8_t* pPayload, int iPayloadSize);
+  void StoreSeiMetaData(AL_TBuffer* pParsedFrame, int32_t iParsingId);
+  void PrintSei(bool bIsPrefix, int32_t iPayloadType, uint8_t* pPayload, int32_t iPayloadSize);
 
 private:
   AL_TAllocator* pAllocator;
   AL_HDecoder hBaseDec = nullptr;
   DisplayManager tDisplayManager {};
   bool bPushBackToDecoder = true;
-  int iNumFrameConceal = 0;
-  int iNumDecodedFrames = 0;
+  int32_t iNumFrameConceal = 0;
+  int32_t iNumDecodedFrames = 0;
   AL_TDecCallBacks CB {};
   AL_TDecSettings* pDecSettings;
   bool bUsePreAlloc = false;
-  bool bBaseBufPoolIsInit = false;
   PixMapBufPool tBaseBufPool;
   bool bSetRecPoolInMultiChunk = false;
   AL_TDecOutputSettings* pUserOutputSettings;
@@ -562,7 +558,7 @@ private:
   AL_ERR TreatError(DeviceType eDevice, AL_TBuffer const* pFrame, AL_TInfoDecode const* pInfo);
   void PrintSyncedSeiMetaData(AL_TBuffer* pFrame);
   AL_TDimension ComputeBaseDecoderFinalResolution(AL_TStreamSettings const* pStreamSettings);
-  int ComputeBaseDecoderRecBufferSizing(AL_TStreamSettings const* pStreamSettings, AL_TDecOutputSettings const* pUserOutputSettings);
+  int32_t ComputeBaseDecoderRecBufferSizing(AL_TStreamSettings const* pStreamSettings, AL_TDecOutputSettings const* pUserOutputSettings);
   void AttachMetaDataToBaseDecoderRecBuffer(AL_TStreamSettings const* pStreamSettings, AL_TBuffer* pDecPict);
 
   bool bAddHDRMetaData = false;
@@ -599,7 +595,7 @@ DecoderContext::DecoderContext(Config& config, AL_TAllocator* pAlloc)
 }
 
 /******************************************************************************/
-DecoderContext::~DecoderContext()
+DecoderContext::~DecoderContext(void)
 {
   Rtos_DeleteEvent(hExitMain);
 }
@@ -620,7 +616,7 @@ bool DecoderContext::WaitExit(uint32_t uTimeout)
 }
 
 /******************************************************************************/
-static AL_ERR sBaseResolutionFound(int iBufferNumber, AL_TStreamSettings const* pStreamSettings, AL_TCropInfo const* pCropInfo, void* pUserParam)
+static AL_ERR sBaseResolutionFound(int32_t iBufferNumber, AL_TStreamSettings const* pStreamSettings, AL_TCropInfo const* pCropInfo, void* pUserParam)
 {
   (void)iBufferNumber;
   auto pCtx = (DecoderContext*)pUserParam;
@@ -629,7 +625,7 @@ static AL_ERR sBaseResolutionFound(int iBufferNumber, AL_TStreamSettings const* 
 
 /******************************************************************************/
 /* duplicated from Utils.h as we can't take these from inside the libraries */
-static inline int RoundUp(int iVal, int iRnd)
+static inline int32_t RoundUp(int32_t iVal, int32_t iRnd)
 {
   return (iVal + iRnd - 1) / iRnd * iRnd;
 }
@@ -649,10 +645,10 @@ AL_TDimension DecoderContext::ComputeBaseDecoderFinalResolution(AL_TStreamSettin
 }
 
 /******************************************************************************/
-int DecoderContext::ComputeBaseDecoderRecBufferSizing(AL_TStreamSettings const* pStreamSettings, AL_TDecOutputSettings const* pUserOutputSettings)
+int32_t DecoderContext::ComputeBaseDecoderRecBufferSizing(AL_TStreamSettings const* pStreamSettings, AL_TDecOutputSettings const* pUserOutputSettings)
 {
   // Up to this point pUserOutputSettings is already updated in the resolution found callback (SetupBaseDecoderPool)
-  int iBufferSize = 0;
+  int32_t iBufferSize = 0;
 
   // Compute output resolution
   AL_TDimension tOutputDim = ComputeBaseDecoderFinalResolution(pStreamSettings);
@@ -660,7 +656,7 @@ int DecoderContext::ComputeBaseDecoderRecBufferSizing(AL_TStreamSettings const* 
   // Buffer sizing
   auto minPitch = AL_Decoder_GetMinPitch(tOutputDim.iWidth, &pUserOutputSettings->tPicFormat);
 
-  if(bBaseBufPoolIsInit)
+  if(tBaseBufPool.IsInit())
     iBufferSize = AL_DecGetAllocSize_Frame(tOutputDim, minPitch, pUserOutputSettings->tPicFormat);
   else
   {
@@ -736,10 +732,13 @@ static void SetDecOutputSettings(AL_TDecOutputSettings& tUserOutputSettings, AL_
     Added from previous version of AL_GetDecPicFormat()*/
   if(AL_FB_RASTER == tPicFormat.eStorageMode && 10 == tPicFormat.uBitDepth)
     tPicFormat.eSamplePackMode = AL_SAMPLE_PACK_MODE_PACKED_XV;
+
+  if(tUserOutputSettings.tPicFormat.ePlaneMode == AL_PLANE_MODE_INTERLEAVED && tUserOutputSettings.tPicFormat.eChromaMode == AL_CHROMA_4_4_4)
+    tUserOutputSettings.tPicFormat.eAlphaMode = AL_ALPHA_MODE_AFTER;
 }
 
 /******************************************************************************/
-AL_ERR DecoderContext::SetupBaseDecoderPool(int iBufferNumber, AL_TStreamSettings const* pStreamSettings, AL_TCropInfo const* pCropInfo)
+AL_ERR DecoderContext::SetupBaseDecoderPool(int32_t iBufferNumber, AL_TStreamSettings const* pStreamSettings, AL_TCropInfo const* pCropInfo)
 {
   auto lockDisplay = LockDisplay();
 
@@ -751,56 +750,52 @@ AL_ERR DecoderContext::SetupBaseDecoderPool(int iBufferNumber, AL_TStreamSetting
     throw runtime_error("Could not configure the output settings");
 
   /* Compute buffer sizing */
-  int iBufferSize = ComputeBaseDecoderRecBufferSizing(pStreamSettings, pUserOutputSettings);
+  int32_t iBufferSize = ComputeBaseDecoderRecBufferSizing(pStreamSettings, pUserOutputSettings);
 
   AL_TCropInfo pUserCropInfo = *pCropInfo;
 
   AL_TDimension outputDim = pStreamSettings->tDim;
   ShowStreamInfo(iBufferNumber, iBufferSize, pStreamSettings, &pUserCropInfo, AL_GetFourCC(pUserOutputSettings->tPicFormat), outputDim);
 
-  if(bBaseBufPoolIsInit)
+  if(tBaseBufPool.IsInit())
     return AL_SUCCESS;
 
   /* Create the buffers */
-  int iNumBuf = iBufferNumber + uDefaultNumBuffersHeldByNextComponent;
+  int32_t iNumBuf = iBufferNumber + uDefaultNumBuffersHeldByNextComponent;
 
   if(!tBaseBufPool.Init(pAllocator, iNumBuf, "decoded picture buffer"))
     return AL_ERR_NO_MEMORY;
 
-  bBaseBufPoolIsInit = true;
-
   // Attach the metas + push to decoder
   // ----------------------------------
-  for(int i = 0; i < iNumBuf; ++i)
+  for(int32_t i = 0; i < iNumBuf; ++i)
   {
-    auto pDecPict = tBaseBufPool.GetBuffer(AL_BUF_MODE_NONBLOCK);
+    auto pDecPict = tBaseBufPool.GetSharedBuffer(AL_EBufMode::AL_BUF_MODE_NONBLOCK);
 
     if(!pDecPict)
       throw runtime_error("pDecPict is null");
 
-    AL_Buffer_MemSet(pDecPict, 0x00);
+    AL_Buffer_Cleanup(pDecPict.get());
 
-    AttachMetaDataToBaseDecoderRecBuffer(pStreamSettings, pDecPict);
-    bool const bAdded = AL_Decoder_PutDisplayPicture(GetBaseDecoderHandle(), pDecPict);
+    AttachMetaDataToBaseDecoderRecBuffer(pStreamSettings, pDecPict.get());
+    bool const bAdded = AL_Decoder_PutDisplayPicture(GetBaseDecoderHandle(), pDecPict.get());
 
     if(!bAdded)
       throw runtime_error("bAdded must be true");
-
-    AL_Buffer_Unref(pDecPict);
   }
 
   return AL_SUCCESS;
 }
 
 /******************************************************************************/
-static void sInputParsed(AL_TBuffer* pParsedFrame, void* pUserParam, int iParsingId)
+static void sInputParsed(AL_TBuffer* pParsedFrame, void* pUserParam, int32_t iParsingId)
 {
   auto pCtx = (DecoderContext*)pUserParam;
   pCtx->StoreSeiMetaData(pParsedFrame, iParsingId);
 }
 
 /******************************************************************************/
-void DecoderContext::StoreSeiMetaData(AL_TBuffer* pParsedFrame, int iParsingId)
+void DecoderContext::StoreSeiMetaData(AL_TBuffer* pParsedFrame, int32_t iParsingId)
 {
   AL_THandleMetaData* pHandlesMeta = (AL_THandleMetaData*)AL_Buffer_GetMetaData(pParsedFrame, AL_META_TYPE_HANDLE);
 
@@ -834,7 +829,7 @@ void DecoderContext::StoreSeiMetaData(AL_TBuffer* pParsedFrame, int iParsingId)
 }
 
 /******************************************************************************/
-int convertBitDepthToEven(int iBd)
+int32_t convertBitDepthToEven(int32_t iBd)
 {
   return ((iBd % 2) != 0) ? iBd + 1 : iBd;
 }
@@ -845,7 +840,7 @@ static void sFrameDecoded(AL_TBuffer* pFrame, void* pUserParam)
   pCtx->ReceiveBaseDecoderDecodedFrame(pFrame);
 }
 
-void DisplayManager::ProcessFrame(AL_TBuffer& tRecBuf, AL_TInfoDecode info, int iBdOut, TFourCC tFourCCOut)
+void DisplayManager::ProcessFrame(AL_TBuffer& tRecBuf, AL_TInfoDecode info, int32_t iBdOut, TFourCC tOutFourCC)
 {
   AL_PixMapBuffer_SetDimension(&tRecBuf, info.tDim);
 
@@ -855,64 +850,61 @@ void DisplayManager::ProcessFrame(AL_TBuffer& tRecBuf, AL_TInfoDecode info, int 
   tCrop = info.tCrop;
   AL_TPosition tPos = { 0, 0 };
 
-  if(info.tPos.iX || info.tPos.iY)
-  {
-    tPos = info.tPos;
-    tCrop.bCropping = true;
-    tCrop.uCropOffsetLeft += info.tPos.iX;
-    tCrop.uCropOffsetRight -= info.tPos.iX;
-    tCrop.uCropOffsetTop += info.tPos.iY;
-    tCrop.uCropOffsetBottom -= info.tPos.iY;
-  }
-
-  TFourCC tFourCCRecBuf = AL_PixMapBuffer_GetFourCC(&tRecBuf);
+  TFourCC tRecBufFourCC = AL_PixMapBuffer_GetFourCC(&tRecBuf);
   AL_TPicFormat tRecPicFormat;
-  AL_GetPicFormat(tFourCCRecBuf, &tRecPicFormat);
+  AL_GetPicFormat(tRecBufFourCC, &tRecPicFormat);
 
   bool bNewInputFourCCFound = false;
 
-  if(tInputFourCC != tFourCCRecBuf)
+  if(tInputFourCC != tRecBufFourCC)
   {
     bNewInputFourCCFound = true;
-    tInputFourCC = tFourCCRecBuf;
+    tInputFourCC = tRecBufFourCC;
   }
 
-  if(tFourCCOut == FOURCC(NULL))
+  if(tOutFourCC == FOURCC(NULL))
   {
+    AL_EPlaneMode ePlaneMode = AL_PLANE_MODE_PLANAR;
+
     AL_TPicFormat tConvPicFormat = AL_TPicFormat {
       tRecPicFormat.eChromaMode,
       AL_ALPHA_MODE_DISABLED,
       static_cast<uint8_t>(iBdOut),
       AL_FB_RASTER,
-      tRecPicFormat.eChromaMode == AL_CHROMA_MONO ? AL_PLANE_MODE_MONOPLANE : AL_PLANE_MODE_PLANAR,
+      ePlaneMode,
       AL_COMPONENT_ORDER_YUV,
       AL_SAMPLE_PACK_MODE_BYTE,
       false,
       tRecPicFormat.bMSB
     };
 
-    tFourCCOut = AL_GetFourCC(tConvPicFormat);
+    tOutFourCC = AL_GetFourCC(tConvPicFormat);
   }
-  else if(tFourCCOut == FOURCC(hard))
+  else if(tOutFourCC == FOURCC(hard))
   {
-    tFourCCOut = tFourCCRecBuf;
+    tOutFourCC = tRecBufFourCC;
   }
 
-  bool bCompress = AL_IsCompressed(tFourCCRecBuf);
-  bool bConvert = !bCompress && tFourCCOut != tFourCCRecBuf;
+  bool bCompress = AL_IsCompressed(tRecBufFourCC);
+  bool bConvert = !bCompress && tOutFourCC != tRecBufFourCC;
+
+  AL_TDisplayInfoMetaData* pMeta = reinterpret_cast<AL_TDisplayInfoMetaData*>(AL_Buffer_GetMetaData(&tRecBuf, AL_META_TYPE_DISPLAY_INFO));
+
+  if(pMeta)
+    pMeta->tCrop = tCrop;
 
   if(bConvert)
   {
-    if(tInputFourCC != tFourCCOut && bNewInputFourCCFound)
+    if(tInputFourCC != tOutFourCC && bNewInputFourCCFound)
     {
       stringstream ss;
-      ss << "Software conversion done from " << FourCCToString(tFourCCRecBuf) << " to " << FourCCToString(tFourCCOut) << endl;
+      ss << "Software conversion done from " << AL_FourCCToString(tRecBufFourCC).cFourcc << " to " << AL_FourCCToString(tOutFourCC).cFourcc << endl;
       LogInfo(CC_DARK_BLUE, "%s\n", ss.str().c_str());
       fflush(stdout);
     }
 
     AL_TBuffer* YuvBuffer = NULL;
-    ConvertFrameBuffer(&tRecBuf, YuvBuffer, iBdOut, tPos, tFourCCOut);
+    ConvertFrameBuffer(&tRecBuf, YuvBuffer, iBdOut, tPos, tOutFourCC);
 
     CopyMetaData(YuvBuffer, &tRecBuf, AL_META_TYPE_DISPLAY_INFO);
 
@@ -922,11 +914,6 @@ void DisplayManager::ProcessFrame(AL_TBuffer& tRecBuf, AL_TInfoDecode info, int 
   }
   else
   {
-    AL_TDisplayInfoMetaData* pMeta = reinterpret_cast<AL_TDisplayInfoMetaData*>(AL_Buffer_GetMetaData(&tRecBuf, AL_META_TYPE_DISPLAY_INFO));
-
-    if(pMeta)
-      pMeta->tCrop = tCrop;
-
     multisinkOut->ProcessFrame(&tRecBuf);
   }
 
@@ -959,14 +946,14 @@ void DecoderContext::PrintSyncedSeiMetaData(AL_TBuffer* pFrame)
 }
 
 /******************************************************************************/
-static void sParsedSei(bool bIsPrefix, int iPayloadType, uint8_t* pPayload, int iPayloadSize, void* pUserParam)
+static void sParsedSei(bool bIsPrefix, int32_t iPayloadType, uint8_t* pPayload, int32_t iPayloadSize, void* pUserParam)
 {
   auto pCtx = static_cast<DecoderContext*>(pUserParam);
   pCtx->PrintSei(bIsPrefix, iPayloadType, pPayload, iPayloadSize);
 }
 
 /******************************************************************************/
-void DecoderContext::PrintSei(bool bIsPrefix, int iPayloadType, uint8_t* pPayload, int iPayloadSize)
+void DecoderContext::PrintSei(bool bIsPrefix, int32_t iPayloadType, uint8_t* pPayload, int32_t iPayloadSize)
 {
   WriteSei(bIsPrefix, iPayloadType, pPayload, iPayloadSize, &seiOutput, SEI_NOT_ASSOCIATED_WITH_FRAME);
 }
@@ -1043,7 +1030,7 @@ void DecoderContext::ReceiveFrameToDisplayFrom(DeviceType eDevice, AL_TBuffer* p
         bool bIsBaseDecoder = eDevice == DEVICE_BASE_DECODER;
         bool bIsFrameMainDisplay;
         auto hDec = GetDecoderHandle(eDevice);
-        int iBitDepthAlloc = 8;
+        int32_t iBitDepthAlloc = 8;
 
         if(bIsBaseDecoder)
           iBitDepthAlloc = AL_Decoder_GetMaxBD(hDec);
@@ -1101,7 +1088,7 @@ AL_ERR DecoderContext::TreatError(DeviceType eDevice, AL_TBuffer const* pFrame, 
 }
 
 /******************************************************************************/
-void ShowStatistics(double durationInSeconds, int iNumFrameConceal, int decodedFrameNumber, bool timeoutOccurred)
+void ShowStatistics(double durationInSeconds, int32_t iNumFrameConceal, int32_t decodedFrameNumber, bool timeoutOccurred)
 {
   string guard = "Decoded time = ";
 
@@ -1116,7 +1103,7 @@ void ShowStatistics(double durationInSeconds, int iNumFrameConceal, int decodedF
 }
 
 /******************************************************************************/
-AL_TPixMapMetaData* CreateAndFillPixMapMeta(TFourCC tFourCC, AL_TDimension tDim, int iPitchY)
+AL_TPixMapMetaData* CreateAndFillPixMapMeta(TFourCC tFourCC, AL_TDimension tDim, int32_t iPitchY)
 {
   AL_TPicFormat tPicFmt;
   AL_GetPicFormat(tFourCC, &tPicFmt);
@@ -1128,7 +1115,7 @@ AL_TPixMapMetaData* CreateAndFillPixMapMeta(TFourCC tFourCC, AL_TDimension tDim,
     0, 0, iPitchY
   };
 
-  int iPitchC = 0;
+  int32_t iPitchC = 0;
   auto uSizeC = 0;
   AL_TPlane tPlaneU {
     0, 0, 0
@@ -1136,7 +1123,7 @@ AL_TPixMapMetaData* CreateAndFillPixMapMeta(TFourCC tFourCC, AL_TDimension tDim,
   AL_TPlane tPlaneV {
     0, 0, 0
   };
-  int uPlaneOffset = 0;
+  int32_t uPlaneOffset = 0;
 
   if(bHasChroma)
   {
@@ -1208,7 +1195,7 @@ private:
 AsyncFileInput::AsyncFileInput() {}
 
 /******************************************************************************/
-AsyncFileInput::~AsyncFileInput()
+AsyncFileInput::~AsyncFileInput(void)
 {
   m_bExit = true;
 
@@ -1253,7 +1240,7 @@ void AsyncFileInput::ConfigureStreamInput(string const& sPath, string const& sPa
 }
 
 /******************************************************************************/
-void AsyncFileInput::Start()
+void AsyncFileInput::Start(void)
 {
   if(!m_bStreamInputSet)
     throw runtime_error("Stream input must be set (call AsyncFileInput::ConfigureStreamInput)");
@@ -1262,7 +1249,7 @@ void AsyncFileInput::Start()
 }
 
 /******************************************************************************/
-void AsyncFileInput::Run()
+void AsyncFileInput::Run(void)
 {
   Rtos_SetCurrentThreadName("FileInput");
 
@@ -1271,9 +1258,7 @@ void AsyncFileInput::Run()
     shared_ptr<AL_TBuffer> pInputBuf;
     try
     {
-      pInputBuf = shared_ptr<AL_TBuffer>(
-        m_pBufPool->GetBuffer(),
-        &AL_Buffer_Unref);
+      pInputBuf = m_pBufPool->GetSharedBuffer();
     }
     catch(bufpool_decommited_error &)
     {
@@ -1301,14 +1286,14 @@ void AsyncFileInput::Run()
 }
 
 /******************************************************************************/
-constexpr int MAX_CHANNELS = 32;
+constexpr int32_t MAX_CHANNELS = 32;
 
 /******************************************************************************/
-int GetChannelsArgv(vector<char*>* argvChannels, int argc, char** argv)
+int32_t GetChannelsArgv(vector<char*>* argvChannels, int32_t argc, char** argv)
 {
-  int curChan = 0;
+  int32_t curChan = 0;
 
-  for(int i = 0; i < argc; ++i)
+  for(int32_t i = 0; i < argc; ++i)
   {
     if(string(argv[i]) == "--next-chan")
     {
@@ -1338,7 +1323,7 @@ struct WorkerConfig
 /******************************************************************************/
 void AdjustStreamBufferSettings(Config& config)
 {
-  unsigned int uMinStreamBuf = config.tDecSettings.iStackSize;
+  uint32_t uMinStreamBuf = config.tDecSettings.iStackSize;
   config.uInputBufferNum = max(uMinStreamBuf, config.uInputBufferNum);
   config.zInputBufferSize = max(size_t(1), config.zInputBufferSize);
 
@@ -1359,7 +1344,7 @@ void CheckAndAdjustChannelConfiguration(Config& config)
   // ---------------------------
   if(config.UseBaseDecoder())
   {
-    int err = AL_DecSettings_CheckValidity(&config.tDecSettings, out);
+    int32_t err = AL_DecSettings_CheckValidity(&config.tDecSettings, out);
     err += AL_DecOutputSettings_CheckValidity(&config.tUserOutputSettings, config.tDecSettings.eCodec, out);
 
     if(err)
@@ -1371,7 +1356,7 @@ void CheckAndAdjustChannelConfiguration(Config& config)
 
     auto const incoherencies = AL_DecSettings_CheckCoherency(&config.tDecSettings, out);
 
-    if(incoherencies == -1)
+    if(incoherencies < 0)
       throw runtime_error("Fatal coherency error in settings, please check your command line.");
   }
 
@@ -1384,8 +1369,8 @@ void CheckAndAdjustChannelConfiguration(Config& config)
 void ConfigureInputPool(Config const& config, AL_TAllocator* pAllocator, BufPool& tInputPool)
 {
   std::string sDebugName = "input_pool";
-  unsigned int uNumBuf = config.uInputBufferNum;
-  unsigned int zBufSize = config.zInputBufferSize;
+  uint32_t uNumBuf = config.uInputBufferNum;
+  uint32_t zBufSize = config.zInputBufferSize;
   auto pBufPoolAllocator = config.tDecSettings.eInputMode == AL_DEC_SPLIT_INPUT ? pAllocator : AL_GetDefaultAllocator();
   AL_TMetaData* pBufMeta = nullptr;
 
@@ -1406,7 +1391,7 @@ void SafeRunChannelMain(WorkerConfig& w)
 
   std::shared_ptr<CIpDevice> pIpDevice = nullptr;
 
-  if(config.iSchedulerType == AL_SCHEDULER_TYPE_MCU)
+  if(config.eSchedulerType == AL_ESchedulerType::AL_SCHEDULER_TYPE_MCU)
   {
     pIpDevice = std::dynamic_pointer_cast<CIpDevice>(w.devices->at(DEVICE_BASE_DECODER));
 
@@ -1417,7 +1402,7 @@ void SafeRunChannelMain(WorkerConfig& w)
   if(config.UseBaseDecoder())
     pAllocator = w.devices->at(DEVICE_BASE_DECODER)->GetAllocator();
 
-  // Settings checkings
+  // Settings checks
   // ------------------
   CheckAndAdjustChannelConfiguration(config);
 
@@ -1444,6 +1429,7 @@ void SafeRunChannelMain(WorkerConfig& w)
       pAllocator = pIpDevice->GetAllocator();
       bFindNextDevice = false;
     }
+
     tDecCtx.CreateBaseDecoder(device);
   }
 
@@ -1452,7 +1438,7 @@ void SafeRunChannelMain(WorkerConfig& w)
   if(config.UseBaseDecoder())
   {
     auto hDec = tDecCtx.GetBaseDecoderHandle();
-    AL_Decoder_SetParam(hDec, w.useBoards->at(DEVICE_BASE_DECODER) ? "Fpga" : "Ref", config.iTraceIdx, config.iTraceNumber, config.bForceCleanBuffers, config.ipCtrlMode == AL_IPCTRL_MODE_TRACE);
+    AL_Decoder_SetParam(hDec, w.useBoards->at(DEVICE_BASE_DECODER) ? "Fpga" : "Ref", config.iTraceIdx, config.iTraceNumber, config.ipCtrlMode == AL_EIpCtrlMode::AL_IPCTRL_MODE_TRACE);
   }
 
   // Parametrization of the lcevc decoder for traces
@@ -1490,7 +1476,7 @@ void SafeRunChannelMain(WorkerConfig& w)
   auto const uBegin = GetPerfTime();
   bool timeoutOccurred = false;
 
-  for(int iLoop = 0; iLoop < config.iLoop; ++iLoop)
+  for(int32_t iLoop = 0; iLoop < config.iLoop; ++iLoop)
   {
     tInputPool.Commit();
 
@@ -1531,7 +1517,7 @@ void SafeRunChannelMain(WorkerConfig& w)
   if(AL_IS_ERROR_CODE(eErr) || (AL_IS_WARNING_CODE(eErr) && config.eExitCondition == DEC_WARNING))
   {
 
-    if((config.iSchedulerType == AL_SCHEDULER_TYPE_MCU) && config.bSelectDeviceWithLowestAvailableResources)
+    if((config.eSchedulerType == AL_ESchedulerType::AL_SCHEDULER_TYPE_MCU) && config.bSelectDeviceWithLowestAvailableResources)
     {
       bFindNextDevice = pIpDevice->HandleDeviceFailure();
 
@@ -1546,6 +1532,9 @@ void SafeRunChannelMain(WorkerConfig& w)
 // Part of the ugly goto, need to be removed
   if(!bShouldUseGoto)
   {
+
+  if(AL_IS_WARNING_CODE(eErr))
+    cerr << endl << "Warning: " << AL_Codec_ErrorToString(eErr) << endl;
 
   if(!tDecCtx.GetNumDecodedFrames())
     throw runtime_error("No frame decoded");
@@ -1565,8 +1554,8 @@ static std::shared_ptr<CIpDevice> CreateAndConfigureBaseDecoderIpDevice(Config c
 {
   CIpDeviceParam param;
 
-  param.iSchedulerType = pConfig->iSchedulerType;
-  param.iDeviceType = pConfig->iDeviceType;
+  param.eSchedulerType = pConfig->eSchedulerType;
+  param.eDeviceType = pConfig->eDeviceType;
   param.bTrackDma = pConfig->trackDma;
   param.uNumCore = pConfig->tDecSettings.uNumCore;
   param.iHangers = pConfig->hangers;
@@ -1575,7 +1564,7 @@ static std::shared_ptr<CIpDevice> CreateAndConfigureBaseDecoderIpDevice(Config c
   static std::set<std::string> decDevicePath = pConfig->sDecDevicePath;
   param.bSelectDeviceWithLowestAvailableResources = pConfig->bSelectDeviceWithLowestAvailableResources;
 
-  std::shared_ptr<CIpDevice> pIpDevice = std::shared_ptr<CIpDevice>(new CIpDevice(param, pConfig->iDeviceType, { decDevicePath }));
+  std::shared_ptr<CIpDevice> pIpDevice = std::shared_ptr<CIpDevice>(new CIpDevice(param, pConfig->eDeviceType, { decDevicePath }));
 
   if(!pIpDevice)
     throw runtime_error("Can't create BaseDecoderIpDevice");
@@ -1595,12 +1584,12 @@ void SetupArchitecture(Config const& conf)
 }
 
 /******************************************************************************/
-int GetChannelConfigurations(int argc, char** argv, array<Config, MAX_CHANNELS>& cfgChannels)
+int32_t GetChannelConfigurations(int32_t argc, char** argv, array<Config, MAX_CHANNELS>& cfgChannels)
 {
   vector<char*> argvChannels[MAX_CHANNELS] {};
-  int const iNbChan = GetChannelsArgv(argvChannels, argc, argv) + 1;
+  int32_t const iNbChan = GetChannelsArgv(argvChannels, argc, argv) + 1;
 
-  for(int chan = 0; chan < iNbChan; ++chan)
+  for(int32_t chan = 0; chan < iNbChan; ++chan)
     cfgChannels.at(chan) = ParseCommandLine((int)argvChannels[chan].size(), argvChannels[chan].data());
 
   return iNbChan;
@@ -1636,7 +1625,7 @@ void RunChannels(array<Config, MAX_CHANNELS>& cfgChannels, uint8_t uNbChan, Devi
 
   // Set the worker configurations
   // -----------------------------
-  for(int chan = 0; chan < uNbChan; ++chan)
+  for(int32_t chan = 0; chan < uNbChan; ++chan)
   {
     WorkerConfig w
     {
@@ -1664,15 +1653,15 @@ void RunChannels(array<Config, MAX_CHANNELS>& cfgChannels, uint8_t uNbChan, Devi
     // Launch all channel in different threads
     array<std::thread, MAX_CHANNELS> workers;
 
-    for(int chan = 0; chan < uNbChan; ++chan)
+    for(int32_t chan = 0; chan < uNbChan; ++chan)
       workers[chan] = std::thread(&RunChannelMain, std::ref(workerConfigs[chan]), std::ref(errorChannels[chan]));
 
     // Wait all the channels are finished
-    for(int chan = 0; chan < uNbChan; ++chan)
+    for(int32_t chan = 0; chan < uNbChan; ++chan)
       workers[chan].join();
 
     // Check for errors
-    for(int chan = 0; chan < uNbChan; ++chan)
+    for(int32_t chan = 0; chan < uNbChan; ++chan)
     {
       if(errorChannels[chan])
       {
@@ -1684,14 +1673,14 @@ void RunChannels(array<Config, MAX_CHANNELS>& cfgChannels, uint8_t uNbChan, Devi
 }
 
 /******************************************************************************/
-void SafeMain(int argc, char** argv)
+void SafeMain(int32_t argc, char** argv)
 {
   InitializePlateform();
 
   // Get all channel configuration
   // -----------------------------
   array<Config, MAX_CHANNELS> cfgChannels;
-  int const maxChan = GetChannelConfigurations(argc, argv, cfgChannels);
+  int32_t const maxChan = GetChannelConfigurations(argc, argv, cfgChannels);
 
   // Use first channel to configure the ip devices
   auto config = cfgChannels[0];
@@ -1713,7 +1702,7 @@ void SafeMain(int argc, char** argv)
   if(config.UseBaseDecoder())
   {
     devices.insert({ DEVICE_BASE_DECODER, CreateAndConfigureBaseDecoderIpDevice(&config) });
-    useBoards.insert({ DEVICE_BASE_DECODER, (config.iDeviceType == AL_DEVICE_TYPE_BOARD) });
+    useBoards.insert({ DEVICE_BASE_DECODER, (config.eDeviceType == AL_EDeviceType::AL_DEVICE_TYPE_BOARD) });
   }
 
   // Run all the channels

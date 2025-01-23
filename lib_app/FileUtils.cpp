@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include <iostream>
@@ -44,7 +44,7 @@ std::string combinePath(const std::string& folder, const std::string& filename)
 }
 
 /****************************************************************************/
-std::string createFileNameWithID(const std::string& path, const std::string& motif, const std::string& extension, int iFrameID)
+std::string createFileNameWithID(const std::string& path, const std::string& motif, const std::string& extension, int32_t iFrameID)
 {
   std::ostringstream filename;
   filename << motif << "_" << iFrameID << extension;
@@ -86,7 +86,7 @@ bool checkFolder(std::string folderPath)
 }
 
 /****************************************************************************/
-bool checkFileAvailability(std::string folderPath, std::regex file_regex)
+bool checkFileAvailability(std::string folderPath, std::regex const& file_regex)
 {
   (void)file_regex;
 
@@ -164,9 +164,9 @@ bool checkFileAvailability(std::string folderPath, std::regex file_regex)
 }
 
 /****************************************************************************/
-static int FromHex1(char a)
+static int32_t FromHex1(char a)
 {
-  int A = FROM_HEX_ERROR;
+  int32_t A = FROM_HEX_ERROR;
 
   if((a >= 'a') && (a <= 'f'))
     A = (a - 'a') + 10;
@@ -179,10 +179,10 @@ static int FromHex1(char a)
 }
 
 /****************************************************************************/
-int FromHex2(char a, char b)
+int32_t FromHex2(char a, char b)
 {
-  int A = FromHex1(a);
-  int B = FromHex1(b);
+  int32_t A = FromHex1(a);
+  int32_t B = FromHex1(b);
 
   if(A == FROM_HEX_ERROR || B == FROM_HEX_ERROR)
     return FROM_HEX_ERROR;
@@ -191,10 +191,10 @@ int FromHex2(char a, char b)
 }
 
 /****************************************************************************/
-int FromHex4(char a, char b, char c, char d)
+int32_t FromHex4(char a, char b, char c, char d)
 {
-  int AB = FromHex2(a, b);
-  int CD = FromHex2(c, d);
+  int32_t AB = FromHex2(a, b);
+  int32_t CD = FromHex2(c, d);
 
   if(AB == FROM_HEX_ERROR || CD == FROM_HEX_ERROR)
     return FROM_HEX_ERROR;

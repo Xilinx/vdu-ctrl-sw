@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include <stdexcept>
@@ -303,28 +303,29 @@ static size_t Fifo_GetMaxElements(App_Fifo* pFifo)
 
 uint32_t AL_GetWaitMode(AL_EBufMode eMode)
 {
-  uint32_t Wait = 0;
   switch(eMode)
   {
-  case AL_BUF_MODE_BLOCK:
-    Wait = AL_WAIT_FOREVER;
-    break;
-  case AL_BUF_MODE_NONBLOCK:
-    Wait = AL_NO_WAIT;
-    break;
+  case AL_EBufMode::AL_BUF_MODE_BLOCK: return AL_WAIT_FOREVER;
+  case AL_EBufMode::AL_BUF_MODE_NONBLOCK: return AL_NO_WAIT;
   default:
 
-    if(eMode < AL_BUF_MODE_MAX)
+    if(eMode < AL_EBufMode::AL_BUF_MODE_MAX)
       throw std::runtime_error("eMode should be higher or equal than AL_BUF_MODE_MAX");
     break;
   }
 
-  return Wait;
+  return 0;
 }
 
-BaseBufPool::~BaseBufPool()
+BaseBufPool::~BaseBufPool(void)
 {
-  AL_BufPool_Deinit(&m_pool);
+  if(isInit)
+    AL_BufPool_Deinit(&m_pool);
+}
+
+bool BaseBufPool::IsInit(void)
+{
+  return isInit;
 }
 
 bool BaseBufPool::Init(AL_TAllocator* pAllocator, uint32_t uNumBuf)
@@ -342,7 +343,8 @@ bool BaseBufPool::Init(AL_TAllocator* pAllocator, uint32_t uNumBuf)
     tCreateBufCB
   };
 
-  return AL_BufPool_Init(&m_pool, &tConfig);
+  isInit = AL_BufPool_Init(&m_pool, &tConfig);
+  return isInit;
 }
 
 void BaseBufPool::RegisterAvailableBufCallback(AL_TBufPoolAvailableBufCB* pCB)
@@ -357,21 +359,39 @@ bool BaseBufPool::AddMetaData(AL_TMetaData* pMeta)
 
 AL_TBuffer* BaseBufPool::GetBuffer(AL_EBufMode mode)
 {
+  if(!isInit)
+    return nullptr;
+
   AL_TBuffer* pBuf = AL_BufPool_GetBuffer(&m_pool, mode);
 
-  if(mode == AL_BUF_MODE_BLOCK && pBuf == nullptr)
+  if(mode == AL_EBufMode::AL_BUF_MODE_BLOCK && pBuf == nullptr)
     throw bufpool_decommited_error();
 
   return pBuf;
 }
 
-void BaseBufPool::Decommit()
+std::shared_ptr<AL_TBuffer> BaseBufPool::GetSharedBuffer(AL_EBufMode mode)
 {
+  if(!isInit)
+    return nullptr;
+
+  AL_TBuffer* pBuf = GetBuffer(mode);
+
+  if(pBuf == nullptr)
+    return nullptr;
+
+  return std::shared_ptr<AL_TBuffer>(pBuf, &AL_Buffer_Unref);
+}
+
+void BaseBufPool::Decommit(void)
+{
+  Rtos_Assert(isInit);
   AL_BufPool_Decommit(&m_pool);
 }
 
-void BaseBufPool::Commit()
+void BaseBufPool::Commit(void)
 {
+  Rtos_Assert(isInit);
   AL_BufPool_Commit(&m_pool);
 }
 
@@ -398,12 +418,12 @@ AL_TBuffer* BufPool::CreateBuf(AL_TAllocator* pAllocator, PFN_RefCount_CallBack 
   return AL_Buffer_Create_And_AllocateNamed(pAllocator, zBufSize, pRefCntCallBack, sName.c_str());
 }
 
-size_t BufPool::GetBufSize()
+size_t BufPool::GetBufSize(void)
 {
   return zBufSize;
 }
 
-uint32_t BufPool::GetNumBuf()
+uint32_t BufPool::GetNumBuf(void)
 {
   return uNumBuf;
 }

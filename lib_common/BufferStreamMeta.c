@@ -1,9 +1,8 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_common/BufferStreamMeta.h"
 #include "lib_rtos/lib_rtos.h"
-#include "lib_assert/al_assert.h"
 
 static bool StreamMeta_Destroy(AL_TMetaData* pMeta)
 {
@@ -15,7 +14,14 @@ static bool StreamMeta_Destroy(AL_TMetaData* pMeta)
 
 AL_TStreamMetaData* AL_StreamMetaData_Clone(AL_TStreamMetaData* pMeta)
 {
+  if(!pMeta)
+    return NULL;
+
   AL_TStreamMetaData* pNewMeta = AL_StreamMetaData_Create(pMeta->uMaxNumSection);
+
+  if(!pNewMeta)
+    return NULL;
+
   pNewMeta->uTemporalID = pMeta->uTemporalID;
   pNewMeta->uMaxNumSection = pMeta->uMaxNumSection;
   pNewMeta->uNumSection = pMeta->uNumSection;
@@ -68,7 +74,7 @@ static void SetSection(AL_TStreamSection* pSections, uint16_t uSectionID, uint32
   pSections[uSectionID].eFlags = eFlags;
 }
 
-int AL_StreamMetaData_AddSection(AL_TStreamMetaData* pMetaData, uint32_t uOffset, uint32_t uLength, AL_ESectionFlags eFlags)
+int32_t AL_StreamMetaData_AddSection(AL_TStreamMetaData* pMetaData, uint32_t uOffset, uint32_t uLength, AL_ESectionFlags eFlags)
 {
   if(!pMetaData)
     return AL_INVALID_STREAMSECTION_ID;
@@ -87,7 +93,7 @@ int AL_StreamMetaData_AddSection(AL_TStreamMetaData* pMetaData, uint32_t uOffset
 /****************************************************************************/
 void AL_StreamMetaData_ChangeSection(AL_TStreamMetaData* pMetaData, uint16_t uSectionID, uint32_t uOffset, uint32_t uLength)
 {
-  AL_Assert(pMetaData && uSectionID < pMetaData->uNumSection);
+  Rtos_Assert(pMetaData && uSectionID < pMetaData->uNumSection);
 
   pMetaData->pSections[uSectionID].uOffset = uOffset;
   pMetaData->pSections[uSectionID].uLength = uLength;
@@ -96,23 +102,23 @@ void AL_StreamMetaData_ChangeSection(AL_TStreamMetaData* pMetaData, uint16_t uSe
 /****************************************************************************/
 void AL_StreamMetaData_SetSectionFlags(AL_TStreamMetaData* pMetaData, uint16_t uSectionID, AL_ESectionFlags eFlags)
 {
-  AL_Assert(pMetaData && uSectionID < pMetaData->uNumSection);
+  Rtos_Assert(pMetaData && uSectionID < pMetaData->uNumSection);
   pMetaData->pSections[uSectionID].eFlags = eFlags;
 }
 
 /****************************************************************************/
 void AL_StreamMetaData_ClearAllSections(AL_TStreamMetaData* pMetaData)
 {
-  AL_Assert(pMetaData);
+  Rtos_Assert(pMetaData);
   pMetaData->uNumSection = 0;
 }
 
 /****************************************************************************/
-int AL_StreamMetaData_GetLastSectionOfFlag(AL_TStreamMetaData* pMetaData, uint32_t flag)
+int32_t AL_StreamMetaData_GetLastSectionOfFlag(AL_TStreamMetaData* pMetaData, uint32_t flag)
 {
-  AL_Assert(pMetaData);
+  Rtos_Assert(pMetaData);
   AL_TStreamSection* pSections = pMetaData->pSections;
-  int flagSectionId = pMetaData->uNumSection - 1;
+  int32_t flagSectionId = pMetaData->uNumSection - 1;
 
   while(flagSectionId >= 0)
   {
@@ -126,7 +132,7 @@ int AL_StreamMetaData_GetLastSectionOfFlag(AL_TStreamMetaData* pMetaData, uint32
   return flagSectionId;
 }
 
-static int InsertSectionAtId(AL_TStreamMetaData* pMetaData, uint16_t uTargetID, uint32_t uOffset, uint32_t uLength, AL_ESectionFlags eFlags)
+static int32_t InsertSectionAtId(AL_TStreamMetaData* pMetaData, uint16_t uTargetID, uint32_t uOffset, uint32_t uLength, AL_ESectionFlags eFlags)
 {
   if(!pMetaData)
     return AL_INVALID_STREAMSECTION_ID;
@@ -137,7 +143,7 @@ static int InsertSectionAtId(AL_TStreamMetaData* pMetaData, uint16_t uTargetID, 
   if(uNumSection >= pMetaData->uMaxNumSection)
     return AL_INVALID_STREAMSECTION_ID;
 
-  for(int i = uNumSection - 1; i >= (int)uTargetID; --i)
+  for(int32_t i = uNumSection - 1; i >= (int)uTargetID; --i)
   {
     AL_TStreamSection* cur = &pSections[i];
     SetSection(pSections, i + 1, cur->uOffset, cur->uLength, cur->eFlags);
@@ -149,20 +155,20 @@ static int InsertSectionAtId(AL_TStreamMetaData* pMetaData, uint16_t uTargetID, 
   return uTargetID;
 }
 
-static int AddPrefixSei(AL_TStreamMetaData* pMetaData, uint32_t uOffset, uint32_t uLength)
+static int32_t AddPrefixSei(AL_TStreamMetaData* pMetaData, uint32_t uOffset, uint32_t uLength)
 {
   // the prefix sei needs to be inserted after a config section if it exists
-  int iLastSEIPrefixSectionID = AL_StreamMetaData_GetLastSectionOfFlag(pMetaData, AL_SECTION_SEI_PREFIX_FLAG);
+  int32_t iLastSEIPrefixSectionID = AL_StreamMetaData_GetLastSectionOfFlag(pMetaData, AL_SECTION_SEI_PREFIX_FLAG);
 
   if(iLastSEIPrefixSectionID == -1)
     iLastSEIPrefixSectionID = AL_StreamMetaData_GetLastSectionOfFlag(pMetaData, AL_SECTION_CONFIG_FLAG);
 
-  int iSEIPrefixSectionID = iLastSEIPrefixSectionID + 1;
+  int32_t iSEIPrefixSectionID = iLastSEIPrefixSectionID + 1;
 
   return InsertSectionAtId(pMetaData, iSEIPrefixSectionID, uOffset, uLength, AL_SECTION_SEI_PREFIX_FLAG);
 }
 
-int AL_StreamMetaData_AddSeiSection(AL_TStreamMetaData* pMetaData, bool isPrefix, uint32_t uOffset, uint32_t uLength)
+int32_t AL_StreamMetaData_AddSeiSection(AL_TStreamMetaData* pMetaData, bool isPrefix, uint32_t uOffset, uint32_t uLength)
 {
   if(isPrefix)
     return AddPrefixSei(pMetaData, uOffset, uLength);

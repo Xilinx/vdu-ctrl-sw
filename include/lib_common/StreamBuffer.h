@@ -1,9 +1,9 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-/**************************************************************************//*!
+/******************************************************************************
    \addtogroup Buffers
-   @{
+   !@{
    \file
  **************************************************************************/
 #pragma once
@@ -15,7 +15,7 @@
 #include "Profiles.h"
 #include "lib_common/PicFormat.h"
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Retrieves the maximum size of one VCL NAL unit
    This returns the actual worst case a NAL unit could take.
    If you want the decoder bitstream buffer to always be able to hold a frame,
@@ -30,9 +30,9 @@
    \param[in] iLevel Level
    \return maximum size of one NAL unit
 *****************************************************************************/
-int AL_GetMaxNalSize(AL_TDimension tDim, AL_EChromaMode eMode, int iBitDepth, AL_EProfile eProfile, int iLevel);
+int32_t AL_GetMaxNalSize(AL_TDimension tDim, AL_EChromaMode eMode, int32_t iBitDepth, AL_EProfile eProfile, int32_t iLevel);
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Retrieves the most likely to happen real worst case size of the encoder
    generated NAL unit.
    You should use this function to allocate the encoder bitstream buffers as
@@ -42,9 +42,9 @@ int AL_GetMaxNalSize(AL_TDimension tDim, AL_EChromaMode eMode, int iBitDepth, AL
    \param[in] iBitDepth Bitdepth
    \return maximum size of one NAL unit
 *****************************************************************************/
-int AL_GetMitigatedMaxNalSize(AL_TDimension tDim, AL_EChromaMode eMode, int iBitDepth);
+int32_t AL_GetMitigatedMaxNalSize(AL_TDimension tDim, AL_EChromaMode eMode, int32_t iBitDepth);
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Retrieves the minimal memory space needed for the encoder to generate
    one frame.
    You should use this function to determine the minimal allocated buffer used for
@@ -54,6 +54,6 @@ int AL_GetMitigatedMaxNalSize(AL_TDimension tDim, AL_EChromaMode eMode, int iBit
    \return Minimal size for non-VCL NAL unit, slice header and
    specific structure to encode one frame
 *****************************************************************************/
-int AL_GetMinimalNalSize(int iNumSlices, AL_ECodec eCodec);
+int32_t AL_GetMinimalNalSize(int32_t iNumSlices, AL_ECodec eCodec);
 
-/*@}*/
+/*!@}*/

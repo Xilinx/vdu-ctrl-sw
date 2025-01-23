@@ -1,7 +1,7 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-#pragma  once
+#pragma once
 
 #include "lib_log/TimerInterface.h"
 #include "lib_common/Allocator.h"

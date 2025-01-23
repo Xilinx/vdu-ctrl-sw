@@ -1,12 +1,12 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Nal unit type enum
  *************************************************************************/
-typedef enum
+typedef enum AL_ENut
 {
   AL_AVC_NUT_UNSPEC_0 = 0,
   AL_AVC_NUT_VCL_NON_IDR = 1,

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include <cstdlib>
@@ -13,7 +13,7 @@
 #include "lib_app/BuildInfo.h"
 
 /******************************************************************************/
-void DisplayFrameStatus(int iFrameNum)
+void DisplayFrameStatus(int32_t iFrameNum)
 {
 #if VERBOSE_MODE
   LogVerbose("\n\n> % 3d", iFrameNum);
@@ -26,16 +26,16 @@ void DisplayFrameStatus(int iFrameNum)
 #define AL_COMPIL_FLAGS ""
 #endif
 
-void DisplayBuildInfo()
+void DisplayBuildInfo(void)
 {
   BuildInfoDisplay displayBuildInfo {
-    SCM_REV, SCM_BRANCH, AL_CONFIGURE_COMMANDLINE, "Flags", DELIVERY_BUILD_NUMBER, DELIVERY_SCM_REV, DELIVERY_DATE
+    SCM_REV_SW, SCM_BRANCH, AL_CONFIGURE_COMMANDLINE, AL_COMPIL_FLAGS, DELIVERY_BUILD_NUMBER, DELIVERY_SCM_REV, DELIVERY_DATE
   };
   displayBuildInfo();
 }
 
 /*****************************************************************************/
-void DisplayVersionInfo()
+void DisplayVersionInfo(void)
 {
   DisplayVersionInfo(AL_DECODER_COMPANY,
                      AL_DECODER_PRODUCT_NAME,

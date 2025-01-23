@@ -1,28 +1,24 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
 #include "lib_log/LoggerInterface.h"
 #include "lib_log/TimerInterface.h"
+#include "lib_common/Allocator.h"
 #include "lib_rtos/lib_rtos.h"
 
-typedef struct
+typedef struct AL_TDefaultLoggerSample
 {
   AL_64U timestamp;
   char label[MAX_LOG_LABEL_SIZE];
-}LogEvent;
+}AL_TDefaultLoggerSample;
 
-typedef struct
+typedef struct AL_TDefaultLoggerEvents
 {
-  AL_ILoggerVtable const* vtable;
-  AL_ITimer* timer;
-  LogEvent* events;
-  int count;
-  int maxCount;
-  AL_MUTEX mutex;
-}AL_TDefaultLogger;
+  AL_TDefaultLoggerSample* samples;
+  int32_t count;
+  int32_t max;
+}AL_TDefaultLoggerEvents;
 
-AL_ILogger* AL_DefaultLogger_Init(AL_TDefaultLogger* logger, AL_ITimer* timer, LogEvent* events, int maxCount);
-
-AL_TDefaultLogger* AL_DefaultLogger_Get(void);
+AL_ILogger* AL_DefaultLogger_Init(AL_TAllocator* allocator, AL_ITimer* timer, AL_TDefaultLoggerEvents* events);

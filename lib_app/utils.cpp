@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include <fstream>
@@ -10,7 +10,7 @@
 
 using namespace std;
 
-int g_Verbosity = 10;
+int32_t g_Verbosity = 10;
 static std::mutex s_LogMutex;
 
 static void Message(EConColor Color, const char* sMsg, va_list args)

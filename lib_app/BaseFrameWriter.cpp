@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_app/BaseFrameWriter.h"
@@ -20,7 +20,7 @@ const std::string BaseFrameWriter::ErrorMessageBuffer = "Null buffer provided.";
 const std::string BaseFrameWriter::ErrorMessagePitch = "U and V plane pitches must be identical.";
 
 /****************************************************************************/
-void BaseFrameWriter::FactorsCalculus()
+void BaseFrameWriter::FactorsCalculus(void)
 {
   if(m_tPicFormat.ePlaneMode == AL_PLANE_MODE_INTERLEAVED)
     m_iNbBytesPerPix = (m_tPicFormat.uBitDepth == 8 || (m_tPicFormat.uBitDepth == 10 && m_tPicFormat.eSamplePackMode == AL_SAMPLE_PACK_MODE_PACKED)) ? sizeof(uint32_t) : sizeof(uint64_t);
@@ -32,12 +32,12 @@ void BaseFrameWriter::FactorsCalculus()
 }
 
 /****************************************************************************/
-void BaseFrameWriter::DimInTileCalculus()
+void BaseFrameWriter::DimInTileCalculus(void)
 {
   static const uint32_t MIN_HEIGHT_ROUNDING = 8;
 
-  int iTileWidth = GetTileWidth(m_tPicFormat.eStorageMode, m_tPicFormat.uBitDepth);
-  int iTileHeight = GetTileHeight(m_tPicFormat.eStorageMode);
+  int32_t iTileWidth = GetTileWidth(m_tPicFormat.eStorageMode, m_tPicFormat.uBitDepth);
+  int32_t iTileHeight = GetTileHeight(m_tPicFormat.eStorageMode);
 
   FactorsCalculus();
 
@@ -47,13 +47,17 @@ void BaseFrameWriter::DimInTileCalculus()
 
   m_uPitchCFile = m_uPitchYFile;
   m_uHeightInTileYFile = AL_RoundUpAndDivide(m_tPicDim.iHeight, std::max(uint32_t(iTileHeight), MIN_HEIGHT_ROUNDING), iTileHeight);
-
-  if(m_tPicFormat.ePlaneMode == AL_PLANE_MODE_SEMIPLANAR)
-    m_uHeightInTileCFile = AL_RoundUp(m_uHeightInTileYFile, m_iChromaVertScale) / m_iChromaVertScale;
-  else
+  switch(m_tPicFormat.ePlaneMode)
   {
+  case AL_PLANE_MODE_SEMIPLANAR:
+  case AL_PLANE_MODE_PLANAR:
+    m_uHeightInTileCFile = AL_RoundUp(m_uHeightInTileYFile, m_iChromaVertScale) / m_iChromaVertScale;
+    break;
+
+  default:
     m_iChromaVertScale = 0;
     m_uHeightInTileCFile = 0;
+    break;
   }
 }
 
@@ -62,7 +66,7 @@ void BaseFrameWriter::WritePix(const uint8_t* pPix, uint32_t iPitchInPix, uint16
 {
   CheckNotNull(pPix);
 
-  for(int r = 0; r < uHeightInTile; ++r)
+  for(int32_t r = 0; r < uHeightInTile; ++r)
   {
     WriteBuffer(m_recFile, pPix, uPitchFile);
     pPix += iPitchInPix;
@@ -89,7 +93,7 @@ BaseFrameWriter::BaseFrameWriter(std::shared_ptr<std::ostream> recFile, AL_EFbSt
 }
 
 /****************************************************************************/
-BaseFrameWriter::~BaseFrameWriter()
+BaseFrameWriter::~BaseFrameWriter(void)
 {
   m_recFile->flush();
 }

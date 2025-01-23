@@ -1,10 +1,11 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
+#include "lib_common/PicFormat.h"
 #include "lib_decode/I_DecSchedulerInfo.h"
 #include "lib_decode/lib_decode.h"
 #include "lib_decode/DefaultDecoder.h"
-#include "lib_common_dec/DecBuffersInternal.h"
+#include "lib_common_dec/DecOutputSettingsInternal.h"
 #include "lib_rtos/types.h"
 #include "lib_common_dec/I_DecArch.h"
 
@@ -25,28 +26,35 @@ static bool CheckVersion(AL_TIDecSchedulerVersion const* pVersion)
 }
 
 /****************************************************************************/
-static AL_ERR AL_Decoder_Create_Host(AL_HDecoder* hDec, void* pSch, AL_TAllocator* pAllocator, void* pSet, void* pCallBacks)
+AL_ERR AL_Decoder_Create_Host(AL_HDecoder* hDec, void* pSch, AL_TAllocator* pAllocator, void* pSet, void* pCallBacks)
 {
-  if(!pSet || !pCallBacks || !pAllocator || !pSch || !hDec)
+  if(!pSet || !pAllocator || !hDec)
     return AL_ERROR;
 
   AL_IDecScheduler* pScheduler = (AL_IDecScheduler*)pSch;
   AL_TDecSettings* pSettings = (AL_TDecSettings*)pSet;
   AL_TDecCallBacks* pCB = (AL_TDecCallBacks*)pCallBacks;
 
-  AL_TIDecSchedulerVersion tVersion;
-  AL_IDecScheduler_Get(pScheduler, AL_IDECSCHEDULER_VERSION, &tVersion);
+  if(pScheduler)
+  {
+    if(!pCB)
+      return AL_ERROR;
 
-  if(!CheckVersion(&tVersion))
-    return AL_ERROR;
+    AL_TIDecSchedulerVersion tVersion;
+    AL_IDecScheduler_Get(pScheduler, AL_IDECSCHEDULER_VERSION, &tVersion);
 
-  if(pSettings->eCodec == AL_CODEC_AVC)
+    if(!CheckVersion(&tVersion))
+      return AL_ERROR;
+  }
+  switch(pSettings->eCodec)
+  {
+  case AL_CODEC_AVC:
     return CreateAvcDecoder((AL_TDecoder**)hDec, pScheduler, pAllocator, pSettings, pCB);
-
-  if(pSettings->eCodec == AL_CODEC_HEVC)
+  case AL_CODEC_HEVC:
     return CreateHevcDecoder((AL_TDecoder**)hDec, pScheduler, pAllocator, pSettings, pCB);
-
-  return AL_ERROR;
+  default:
+    return AL_ERROR;
+  }
 }
 
 /*****************************************************************************/
@@ -63,9 +71,9 @@ static void AL_Decoder_Destroy_Host(AL_HDecoder hDec)
 }
 
 /*****************************************************************************/
-static void AL_Decoder_SetParam_Host(AL_HDecoder hDec, const char* sPrefix, int iFrmID, int iNumFrm, bool bForceCleanBuffers, bool bShouldPrintFrameDelimiter)
+static void AL_Decoder_SetParam_Host(AL_HDecoder hDec, const char* sPrefix, int32_t iFrmID, int32_t iNumFrm, bool bShouldPrintFrameDelimiter)
 {
-  AL_Default_Decoder_SetParam((AL_TDecoder*)hDec, sPrefix, iFrmID, iNumFrm, bForceCleanBuffers, bShouldPrintFrameDelimiter);
+  AL_Default_Decoder_SetParam((AL_TDecoder*)hDec, sPrefix, iFrmID, iNumFrm, bShouldPrintFrameDelimiter);
 }
 
 /*****************************************************************************/
@@ -99,7 +107,7 @@ static bool AL_Decoder_ConfigureOutputSettings_Host(AL_HDecoder hDec, AL_TDecOut
 }
 
 /*****************************************************************************/
-static int AL_Decoder_GetMaxBD_Host(AL_HDecoder hDec)
+static int32_t AL_Decoder_GetMaxBD_Host(AL_HDecoder hDec)
 {
   return AL_Default_Decoder_GetMaxBD((AL_TDecoder*)hDec);
 }
@@ -130,28 +138,14 @@ static bool AL_Decoder_PreallocateBuffers_Host(AL_HDecoder hDec)
   return AL_Default_Decoder_PreallocateBuffers(pDec);
 }
 
-static uint32_t AL_Decoder_GetMinPitch_Host(uint32_t uWidth, AL_TPicFormat const* pPicFormat)
+static int32_t AL_Decoder_GetMinPitch_Host(int32_t iWidth, AL_TPicFormat const* pPicFormat)
 {
-  return RndPitch(uWidth, pPicFormat);
+  return RndPitch(iWidth, pPicFormat);
 }
 
-static uint32_t AL_Decoder_GetMinStrideHeight_Host(uint32_t uHeight)
+static int32_t AL_Decoder_GetMinStrideHeight_Host(int32_t iHeight, AL_TPicFormat const* pPicFormat)
 {
-  return RndHeight(uHeight);
-}
-
-uint32_t AL_Decoder_RoundPitch(uint32_t uWidth, uint8_t uBitDepth, AL_EFbStorageMode eFrameBufferStorageMode)
-{
-  AL_TPicFormat tPicFormat;
-  Rtos_Memset(&tPicFormat, 0, sizeof(tPicFormat));
-  tPicFormat.uBitDepth = uBitDepth;
-  tPicFormat.eStorageMode = eFrameBufferStorageMode;
-  return AL_Decoder_GetMinPitch(uWidth, &tPicFormat);
-}
-
-uint32_t AL_Decoder_RoundHeight(uint32_t uHeight)
-{
-  return AL_Decoder_GetMinStrideHeight(uHeight);
+  return RndHeight(iHeight, pPicFormat);
 }
 
 /*****************************************************************************/
@@ -161,13 +155,13 @@ UNIT_ERROR AL_Decoder_TryDecodeOneUnit(AL_HDecoder hDec, AL_TBuffer* pBufStream)
 }
 
 /*****************************************************************************/
-int AL_Decoder_GetDecodedStrOffset(AL_HDecoder hDec)
+int32_t AL_Decoder_GetDecodedStrOffset(AL_HDecoder hDec)
 {
   return AL_Default_Decoder_GetStrOffset((AL_TDecoder*)hDec);
 }
 
 /*****************************************************************************/
-int AL_Decoder_SkipParsedUnits(AL_HDecoder hDec)
+int32_t AL_Decoder_SkipParsedUnits(AL_HDecoder hDec)
 {
   return AL_Default_Decoder_SkipParsedNals((AL_TDecoder*)hDec);
 }

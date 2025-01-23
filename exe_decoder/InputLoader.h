@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -51,9 +51,17 @@ struct CircBuffer
 };
 
 /****************************************************************************/
+struct CircBufferFrame
+{
+  int32_t offset;
+  int32_t numBytes;
+  bool endOfFrame;
+};
+
+/****************************************************************************/
 struct SplitInput : public InputLoader
 {
-  SplitInput(int iSize, AL_ECodec eCodec, bool bSliceCut);
+  SplitInput(int32_t iSize, AL_ECodec eCodec, bool bSliceCut);
   uint32_t ReadStream(std::istream& ifFileStream, AL_TBuffer* pBufStream, uint8_t& uBufFlags) override;
 
 private:
@@ -62,6 +70,16 @@ private:
   AL_ECodec m_eCodec;
   bool m_bSliceCut;
   bool m_bEOF {};
+
+  bool RefillCircularBuffer(std::istream& ifFileStream);
+  int32_t GetCircularBufferUnusedOffset();
+  int32_t GetCircularBufferUnusedSize();
+
+  bool InsertEndOfStreamAud();
+  std::vector<uint8_t> const& GetEndOfStreamAud();
+
+  void CopyFromCircularToHardwareBuffer(CircBufferFrame const& frame, AL_TBuffer* pBufStream);
+  void ReleaseCircularBuffer(int32_t iNumBytes);
 };
 
 struct SplitInputFromSizes : public InputLoader

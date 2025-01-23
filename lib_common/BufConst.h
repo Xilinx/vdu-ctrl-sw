@@ -1,9 +1,10 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
 #define MAX_REF 16 // max number of frame buffer
+#define MAX_SUB_LAYER 7 // max sub_layer for codec compatible
 
 #define AL_MAX_COLUMNS_TILE 20 // warning : true only for main profile (4K = 10; 8K = 20)
 #define AL_MAX_ROWS_TILE 22  // warning : true only for main profile (4K = 11; 8K = 22)

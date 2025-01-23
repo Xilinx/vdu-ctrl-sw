@@ -1,14 +1,15 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "UnsplitBufferFeeder.h"
 #include "lib_common/Fifo.h"
+#include "lib_common/BufCommon.h"
 #include "lib_rtos/lib_rtos.h"
 #include "DecoderFeeder.h"
 
 #include "Patchworker.h"
 
-typedef struct al_t_UnsplitBufferFeeder
+typedef struct AL_TUnsplitBufferFeeder
 {
   AL_TFeederVtable const* vtable;
   AL_TFifo fifo;
@@ -53,7 +54,7 @@ static bool pushBuffer(AL_TFeeder* hFeeder, AL_TBuffer* pBuf, size_t uSize, bool
 
   if(!AL_Buffer_AddMetaData(pBuf, pMetaCirc))
   {
-    Rtos_Free(pMetaCirc);
+    AL_MetaData_Destroy(pMetaCirc);
     return false;
   }
 
@@ -113,14 +114,14 @@ static const AL_TFeederVtable UnsplitBufferFeederVtable =
   &freeBuf,
 };
 
-AL_TFeeder* AL_UnsplitBufferFeeder_Create(AL_HANDLE hDec, int iMaxBufNum, AL_TAllocator* pAllocator, int iBufferStreamSize, AL_TBuffer* eosBuffer, bool bForceAccessUnitDestroy)
+AL_TFeeder* AL_UnsplitBufferFeeder_Create(AL_HANDLE hDec, int32_t iMaxBufNum, AL_TAllocator* pAllocator, int32_t iBufferStreamSize, AL_TBuffer* eosBuffer, bool bForceAccessUnitDestroy)
 {
   AL_TUnsplitBufferFeeder* this = Rtos_Malloc(sizeof(*this));
 
   if(!this)
     return NULL;
 
-  AL_Assert(eosBuffer);
+  Rtos_Assert(eosBuffer);
 
   this->vtable = &UnsplitBufferFeederVtable;
   this->eosBuffer = eosBuffer;
@@ -134,6 +135,8 @@ AL_TFeeder* AL_UnsplitBufferFeeder_Create(AL_HANDLE hDec, int iMaxBufNum, AL_TAl
 
   if(!stream)
     goto fail_stream_allocation;
+
+  AL_CleanupMemory(AL_Buffer_GetData(stream), iBufferStreamSize);
 
   if(!AL_Patchworker_Init(&this->patchworker, stream, &this->fifo))
     goto fail_patchworker_allocation;

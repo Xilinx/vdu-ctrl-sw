@@ -1,14 +1,14 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-/**************************************************************************//*!
+/******************************************************************************
    \defgroup lib_rtos RTOS
 
    The Rtos functions wrap all calls to the operating system facilities
    like memory allocation, thread and synchronisation primitives.
    They can be reimplemented by the user to fit his platform of choice.
 
-   @{
+   !@{
    \file
  *****************************************************************************/
 #pragma once
@@ -26,6 +26,20 @@ typedef void* AL_THREAD;
 #define AL_WAIT_FOREVER 0xFFFFFFFF
 
 /****************************************************************************/
+/* Assert */
+/****************************************************************************/
+void Rtos_AssertWithMessage(bool bCondition, char const* sMsg, char const* sFile, int32_t iLine);
+
+#if !defined(NDEBUG)
+#define Rtos_Assert(bCondition) \
+  do \
+  { \
+    Rtos_AssertWithMessage(bCondition, # bCondition, __FILE__, __LINE__); \
+  } while(false)
+#else
+#define Rtos_Assert(bCondition) \
+  (void)(bCondition);
+#endif
 
 /****************************************************************************/
 /*  Memory */
@@ -35,8 +49,8 @@ void Rtos_Free(void* pMem);
 
 void* Rtos_Memcpy(void* pDst, void const* pSrc, size_t zSize);
 void* Rtos_Memmove(void* pDst, void const* pSrc, size_t zSize);
-void* Rtos_Memset(void* pDst, int iVal, size_t zSize);
-int Rtos_Memcmp(void const* pBuf1, void const* pBuf2, size_t zSize);
+void* Rtos_Memset(void* pDst, int32_t iVal, size_t zSize);
+int32_t Rtos_Memcmp(void const* pBuf1, void const* pBuf2, size_t zSize);
 
 #define AL_LOG_CRITICAL 0
 #define AL_LOG_ERROR 1
@@ -45,12 +59,23 @@ int Rtos_Memcmp(void const* pBuf1, void const* pBuf2, size_t zSize);
 #define AL_LOG_VERBOSE 7
 #define AL_LOG_DEBUG 20
 
-int Rtos_Log(int iLogLevel, char const* const _Format, ...);
+void Rtos_LogWithoutLevel(char const* sMsg, ...);
+
+#define Rtos_Log(level, ...) \
+  do \
+  { \
+    if(level <= AL_LOG_LEVEL) \
+    { \
+      Rtos_LogWithoutLevel(__VA_ARGS__); \
+    } \
+  } while(0)
 
 /****************************************************************************/
 /*  Clock */
 /****************************************************************************/
+/* Return the time in microseconds (us) */
 AL_64U Rtos_GetTime(void);
+
 void Rtos_Sleep(uint32_t uMillisecond);
 
 /****************************************************************************/
@@ -64,7 +89,7 @@ bool Rtos_ReleaseMutex(AL_MUTEX Mutex);
 /****************************************************************************/
 /*  Semaphore */
 /****************************************************************************/
-AL_SEMAPHORE Rtos_CreateSemaphore(int iInitialCount);
+AL_SEMAPHORE Rtos_CreateSemaphore(int32_t iInitialCount);
 void Rtos_DeleteSemaphore(AL_SEMAPHORE Semaphore);
 bool Rtos_GetSemaphore(AL_SEMAPHORE Semaphore, uint32_t Wait);
 bool Rtos_ReleaseSemaphore(AL_SEMAPHORE Semaphore);
@@ -90,7 +115,7 @@ void Rtos_DeleteThread(AL_THREAD Thread);
 /****************************************************************************/
 void* Rtos_DriverOpen(char const* name);
 void Rtos_DriverClose(void* drv);
-int Rtos_DriverIoctl(void* drv, unsigned long int req, void* data);
+int32_t Rtos_DriverIoctl(void* drv, unsigned long int req, void* data);
 
 #define AL_POLLIN 0x001   /* There is data to read.  */
 #define AL_POLLPRI 0x002   /* There is urgent data to read.  */
@@ -103,14 +128,14 @@ int Rtos_DriverIoctl(void* drv, unsigned long int req, void* data);
 #define AL_POLLHUP 0x010   /* Hung up.  */
 #define AL_POLLNVAL 0x020       /* Invalid polling request.  */
 
-typedef struct Rtos_PollCtx_t
+typedef struct Rtos_PollCtx
 {
   unsigned long events;
   unsigned long revents;
-  int timeout;
+  int32_t timeout;
 }Rtos_PollCtx;
 
-int Rtos_DriverPoll(void* drv, Rtos_PollCtx* ctx);
+int32_t Rtos_DriverPoll(void* drv, Rtos_PollCtx* ctx);
 
 /****************************************************************************/
 /*  Atomics */
@@ -130,4 +155,4 @@ void Rtos_FlushCacheMemory(void* pMem, size_t zSize);
 
 /****************************************************************************/
 
-/*@}*/
+/*!@}*/

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include <iostream>
@@ -38,7 +38,7 @@ void UnCompFrameWriter::WriteFrame(AL_TBuffer* pBuf, AL_TCropInfo* pCrop, AL_EPi
   AL_EFbStorageMode currentStorageMode = AL_GetStorageMode(m_tFourCC);
 
   if(currentStorageMode != m_eStorageMode)
-    return;
+    throw std::runtime_error("Incompatible Storage Format.");
 
   m_tPicDim = AL_PixMapBuffer_GetDimension(pBuf);
 
@@ -93,8 +93,8 @@ void UnCompFrameWriter::WriteFrame(AL_TBuffer* pBuf, AL_TCropInfo* pCrop, AL_EPi
 
   if(m_tPicFormat.eChromaMode != AL_CHROMA_4_0_0)
   {
-    tCrop.uCropOffsetTop /= 2;
-    tCrop.uCropOffsetLeft /= 2;
+    tCrop.uCropOffsetTop /= m_tPicFormat.eChromaMode == AL_CHROMA_4_2_0 ? 2 : 1;
+    tCrop.uCropOffsetLeft /= m_tPicFormat.eChromaMode == AL_CHROMA_4_4_4 ? 1 : 2;
 
     if(m_tPicFormat.ePlaneMode == AL_PLANE_MODE_PLANAR)
     {
@@ -115,10 +115,12 @@ void UnCompFrameWriter::WriteFrame(AL_TBuffer* pBuf, AL_TCropInfo* pCrop, AL_EPi
       WritePix(pC1, iPitchInChroma, m_uHeightInTileCFile, m_uPitchCFile);
     }
   }
+
+  m_recFile->flush();
 }
 
 /****************************************************************************/
-void UnCompFrameWriter::DimInTileCalculusRaster()
+void UnCompFrameWriter::DimInTileCalculusRaster(void)
 {
   FactorsCalculus();
 

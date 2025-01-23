@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -6,32 +6,32 @@
 #include "lib_common/BufferCircMeta.h"
 #include "lib_common/BufCommon.h"
 #include "lib_common/BufConst.h"
+#include "lib_common/Planes.h"
 #include "lib_common/MemDesc.h"
-#include "lib_assert/al_assert.h"
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Generic Buffer
 *****************************************************************************/
 typedef struct TBuffer
 {
-  TMemDesc tMD; /*!< Memory descriptor associated to the buffer */
+  AL_TMemDesc tMD; /*!< Memory descriptor associated to the buffer */
 }TBuffer;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Buffer with Motion Vectors content
 *****************************************************************************/
 typedef TBuffer TBufferMV;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Circular Buffer
 *****************************************************************************/
-typedef struct t_CircBuffer
+typedef struct AL_TCircBuffer
 {
-  TMemDesc tMD; /*!< Memory descriptor associated to the buffer */
+  AL_TMemDesc tMD; /*!< Memory descriptor associated to the buffer */
 
   int32_t iOffset; /*!< Initial Offset in Circular Buffer */
   int32_t iAvailSize; /*!< Avail Space in Circular Buffer */
-}TCircBuffer;
+}AL_TCircBuffer;
 
 static inline void CircBuffer_ConsumeUpToOffset(AL_TBuffer* stream, int32_t iNewOffset)
 {
@@ -43,13 +43,21 @@ static inline void CircBuffer_ConsumeUpToOffset(AL_TBuffer* stream, int32_t iNew
     pCircMeta->iAvailSize -= iNewOffset - pCircMeta->iOffset;
   pCircMeta->iOffset = iNewOffset;
 
-  AL_Assert(pCircMeta->iAvailSize >= 0);
+  Rtos_Assert(pCircMeta->iAvailSize >= 0);
 }
 
-static inline void CircBuffer_Init(TCircBuffer* pBuf)
+static inline void CircBuffer_Init(AL_TCircBuffer* pBuf)
 {
   pBuf->iOffset = 0;
   pBuf->iAvailSize = 0;
 }
 
-int32_t ComputeRndPitch(int32_t iWidth, AL_TPicFormat const* pPicFormat, int iAlignment);
+typedef AL_TDimension AL_TPitch;
+
+int32_t ComputeRndPitch(int32_t iWidth, AL_TPicFormat const* pPicFormat, int32_t iAlignment);
+
+uint32_t AL_GetAllocSize_Frame_Full(AL_TDimension tDim, AL_TPicFormat const* pPicFormat, AL_TPitch tPitchDim, int32_t iRoundVal);
+
+uint32_t AL_GetAllocSize_Frame_PixPlane(AL_TPicFormat const* pPicFormat, AL_TPitch tPitchDim, AL_EPlaneId ePlaneId);
+
+uint32_t AL_GetAllocSize_Frame_MapPlane(AL_TPicFormat const* pPicFormat, AL_TDimension tDim, AL_EPlaneId ePlaneId, int32_t iRoundVal);

@@ -1,9 +1,11 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
 #include "lib_app/utils.h"
+
+#include <string>
 
 extern "C"
 {
@@ -19,23 +21,20 @@ typedef struct AL_TDriver AL_TDriver;
 /*****************************************************************************/
 struct CIpDeviceParam
 {
-  int iDeviceType;
-  int iSchedulerType;
+  AL_EDeviceType eDeviceType;
+  AL_ESchedulerType eSchedulerType;
   bool bTrackDma = false;
   uint8_t uNumCore = 0;
-  int iHangers = 0;
+  int32_t iHangers = 0;
   AL_EIpCtrlMode ipCtrlMode;
   std::string apbFile;
   bool bSelectDeviceWithLowestAvailableResources;
 };
 
-class I_IpDevice
+struct I_IpDevice
 {
-public:
+  virtual ~I_IpDevice() = default;
   virtual void* GetScheduler() = 0;
   virtual AL_TAllocator* GetAllocator() = 0;
   virtual AL_ITimer* GetTimer() = 0;
 };
-
-/*****************************************************************************/
-AL_TAllocator* CreateDmaAllocator(const char* deviceName);

@@ -1,11 +1,9 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-/****************************************************************************
-   -----------------------------------------------------------------------------
- **************************************************************************//*!
+/******************************************************************************
    \addtogroup lib_decode_hls
-   @{
+   !@{
    \file
  *****************************************************************************/
 
@@ -45,7 +43,7 @@ static void FillConcealValue(AL_TDecCtx* pCtx, AL_TDecSliceParam* pSP)
 }
 
 /******************************************************************************/
-int AL_AVC_GetFrameHeight(AL_TAvcSps const* pSPS, bool bHasFields)
+int32_t AL_AVC_GetFrameHeight(AL_TAvcSps const* pSPS, bool bHasFields)
 {
   return (bHasFields || pSPS->frame_mbs_only_flag) ? (pSPS->pic_height_in_map_units_minus1 + 1) : ((pSPS->pic_height_in_map_units_minus1 + 1) * 2);
 }
@@ -134,9 +132,9 @@ void AL_AVC_FillSliceParameters(const AL_TAvcSliceHdr* pSlice, const AL_TDecCtx*
   // Reg 4
   pSP->tc_offset_div2 = pSlice->slice_alpha_c0_offset_div2;
   pSP->beta_offset_div2 = pSlice->slice_beta_offset_div2;
-  int const DEBLOCKING_FILTER_DISABLE = 0x1;
+  int32_t const DEBLOCKING_FILTER_DISABLE = 0x1;
   pSP->DisableLoopFilter = (pSlice->disable_deblocking_filter_idc & DEBLOCKING_FILTER_DISABLE);
-  int const DEBLOCKING_FILTER_SLICE = 0x2;
+  int32_t const DEBLOCKING_FILTER_SLICE = 0x2;
   pSP->XSliceLoopFilter = !(pSlice->disable_deblocking_filter_idc & DEBLOCKING_FILTER_SLICE);
   pSP->SliceId = pCtx->tCurrentFrameCtx.uNumSlice;
 
@@ -288,7 +286,7 @@ void AL_HEVC_FillPictParameters(const AL_THevcSliceHdr* pSlice, const AL_TDecCtx
   AL_SET_DEC_OPT(pPP, HighPrecOffset, pSps->high_precision_offsets_enabled_flag);
 
   // Reg G-H
-  for(int i = 0; i < 6; ++i)
+  for(int32_t i = 0; i < 6; ++i)
   {
     pPP->CbQpOffLst[i] = pPps->cb_qp_offset_list[i];
     pPP->CrQpOffLst[i] = pPps->cr_qp_offset_list[i];
@@ -301,10 +299,10 @@ void AL_HEVC_FillPictParameters(const AL_THevcSliceHdr* pSlice, const AL_TDecCtx
 
   if(pPps->tiles_enabled_flag)
   {
-    for(int i = 0; i <= pPps->num_tile_columns_minus1; ++i)
+    for(int32_t i = 0; i <= pPps->num_tile_columns_minus1; ++i)
       pPP->tile_column_width[i] = pPps->tile_column_width[i];
 
-    for(int i = 0; i <= pPps->num_tile_rows_minus1; ++i)
+    for(int32_t i = 0; i <= pPps->num_tile_rows_minus1; ++i)
       pPP->tile_row_height[i] = pPps->tile_row_height[i];
   }
 
@@ -384,7 +382,7 @@ void AL_HEVC_FillSliceParameters(const AL_THevcSliceHdr* pSlice, const AL_TDecCt
 
   pSP->entry_point_offset[0] = 0;
 
-  for(int i = 1; i <= pSlice->num_entry_point_offsets; ++i)
+  for(int32_t i = 1; i <= pSlice->num_entry_point_offsets; ++i)
     pSP->entry_point_offset[i] = pSlice->entry_point_offset_minus1[i] + 1;
 }
 
@@ -408,4 +406,4 @@ void AL_HEVC_FillSlicePicIdRegister(const AL_THevcSliceHdr* pSlice, AL_TDecCtx* 
   FillConcealValue(pCtx, pSP);
 }
 
-/*@}*/
+/*!@}*/

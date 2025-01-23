@@ -1,19 +1,12 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-/****************************************************************************
-   -----------------------------------------------------------------------------
- **************************************************************************//*!
-   \addtogroup lib_base
-   @{
-   \file
- *****************************************************************************/
 #pragma once
 
 #include "lib_rtos/types.h"
 #include "lib_common/Profiles.h"
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Start Code Detector Parameters : Mimics structure for IP registers
 *****************************************************************************/
 typedef struct AL_TSCParam
@@ -29,7 +22,7 @@ typedef struct AL_TSCParam
   uint8_t ChannelID;  /*!< Specifies the channel number */
 }AL_TScParam;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Start Code Buffers structure
 *****************************************************************************/
 typedef struct AL_TScBufferAddrs
@@ -42,7 +35,7 @@ typedef struct AL_TScBufferAddrs
   AL_PADDR pBufOut;
 }AL_TScBufferAddrs;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Start Code Detector Output
 *****************************************************************************/
 typedef struct AL_TStartCode
@@ -59,7 +52,7 @@ typedef struct AL_TNal
   uint32_t uSize; /* Nal size */
 }AL_TNal;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Start Code Detector Status
 *****************************************************************************/
 typedef struct AL_TSCStatus
@@ -67,5 +60,3 @@ typedef struct AL_TSCStatus
   uint16_t uNumSC;    /* number of Start Code found */
   uint32_t uNumBytes; /* number of bytes parsed */
 }AL_TScStatus;
-
-/*@}*/

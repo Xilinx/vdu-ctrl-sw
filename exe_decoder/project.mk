@@ -5,12 +5,10 @@ EXE_DECODER_SRC:=\
   $(THIS_EXE_DECODER)/SinkYuvCrc.cpp\
   $(THIS_EXE_DECODER)/CmdParser.cpp\
   $(THIS_EXE_DECODER)/IpDevice.cpp\
-  $(THIS_EXE_DECODER)/IpDeviceCommon.cpp\
   $(THIS_EXE_DECODER)/CodecUtils.cpp\
   $(THIS_EXE_DECODER)/InputLoader.cpp\
   $(THIS_EXE_DECODER)/SinkCheckSum.cpp\
   $(THIS_EXE_DECODER)/SinkStatistics.cpp\
-  $(THIS_EXE_DECODER)/SinkYuvMd5.cpp\
 
 
 
@@ -24,11 +22,14 @@ endif
 EXE_DECODER_OBJ:=$(EXE_DECODER_SRC:%=$(BIN)/%.o)
 
 
-$(BIN)/AL_Decoder.exe: $(EXE_DECODER_OBJ) $(LIB_REFDEC_A) $(LIB_REFALLOC_A) $(LIB_DECODER_A) $(LIB_APP_A) $(LIB_REF_LCEVC_DEC_A) $(LIB_LCEVC_DECODE_A) $(LIB_CONV_YUV_A)
+ifneq ($(ENABLE_SH_TESTS),0)
+AL_Decoder.test: AL_Decoder.exe
+	$(TEST)/run.sh -b bin -e check_dependencies -e check_that_libref_is_standalone -e unittests -h $(THIS_EXE_DECODER)/tests.sh
+endif
 
-$(BIN)/$(THIS_EXE_DECODER)/%.o: CFLAGS+=-pthread
+$(BIN)/AL_Decoder.exe: $(EXE_DECODER_OBJ) $(LIB_REFDEC_A) $(LIB_REFALLOC_A) $(LIB_DECODER_A) $(LIB_APP_A) $(LIB_REFFBC_A) $(LIB_REF_LCEVC_DEC_A) $(LIB_LCEVC_DECODE_A)
 
-$(BIN)/$(THIS_EXE_DECODER)/CodecUtils.cpp.o: CFLAGS+=$(SCM_REV)
+$(BIN)/$(THIS_EXE_DECODER)/CodecUtils.cpp.o: CFLAGS+=$(SCM_REV_SW)
 $(BIN)/$(THIS_EXE_DECODER)/CodecUtils.cpp.o: CFLAGS+=$(SCM_BRANCH)
 $(BIN)/$(THIS_EXE_DECODER)/CodecUtils.cpp.o: CFLAGS+=$(DELIVERY_BUILD_NUMBER)
 $(BIN)/$(THIS_EXE_DECODER)/CodecUtils.cpp.o: CFLAGS+=$(DELIVERY_SCM_REV)

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -6,7 +6,7 @@
 #include <memory>
 #include "lib_app/console.h" // EConColor
 
-extern int g_Verbosity;
+extern int32_t g_Verbosity;
 
 void LogError(const char* sMsg, ...);
 void LogWarning(const char* sMsg, ...);
@@ -30,7 +30,7 @@ public:
   {
   }
 
-  ~ScopeExitClass()
+  ~ScopeExitClass(void)
   {
     m_fn();
   }
@@ -54,7 +54,7 @@ std::unique_ptr<T> make_unique(Args && ... args)
 
 #endif
 
-enum AL_EIpCtrlMode
+enum class AL_EIpCtrlMode
 {
   AL_IPCTRL_MODE_STANDARD,
   AL_IPCTRL_MODE_TIMERS,
@@ -62,15 +62,15 @@ enum AL_EIpCtrlMode
   AL_IPCTRL_MODE_TRACE, // codec-agnostic raw register r/w and irq dump
 };
 
-enum AL_ESchedulerType
+enum class AL_ESchedulerType
 {
   AL_SCHEDULER_TYPE_CPU,
   AL_SCHEDULER_TYPE_MCU,
 };
 
-typedef enum
+enum class AL_EDeviceType
 {
   AL_DEVICE_TYPE_AUTO,
   AL_DEVICE_TYPE_BOARD,
   AL_DEVICE_TYPE_REFSW,
-}AL_EDeviceType;
+};

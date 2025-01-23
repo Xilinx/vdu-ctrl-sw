@@ -10,7 +10,8 @@ LIB_DECODE_SRC+=\
   lib_decode/SplitBufferFeeder.c\
   lib_decode/I_DecScheduler.c\
   lib_decode/WorkPool.c\
-  lib_decode/DecSettings.c
+  lib_decode/DecSettings.c\
+  lib_decode/SearchDecUnit.c
 
 
 ifneq ($(ENABLE_DEC_ITU), 0)
@@ -19,7 +20,7 @@ ifneq ($(ENABLE_DEC_ITU), 0)
 endif
 
 
-ifneq ($(ENABLE_MCU),0)
+ifneq ($(ENABLE_MICROBLAZE),0)
   LIB_DECODE_SRC+=lib_decode/DecSchedulerMcu.c
 else
 endif

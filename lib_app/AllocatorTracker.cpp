@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 extern "C"
@@ -13,30 +13,33 @@ extern "C"
 
 using namespace std;
 
-constexpr int summaryMode = 0;
-constexpr int detailedMode = 1;
+typedef enum
+{
+  AL_SUMMARY_MODE,
+  AL_DETAILED_MODE
+}AL_ETrackerMode;
 
 struct AllocatorTracker
 {
-  const AL_AllocatorVtable* vtable;
+  AL_TAllocatorVTable const* vtable;
   AL_TAllocator* realAllocator;
   map<string, vector<size_t>> allocs;
   uint64_t size = 0;
-  int mode = summaryMode;
+  AL_ETrackerMode mode = AL_SUMMARY_MODE;
 };
 
-static int bytes_to_megabytes(uint64_t bytes)
+static inline int32_t bytes_to_megabytes(uint64_t bytes)
 {
-  return bytes / (1024 * 1024);
+  return bytes >> 20;
 }
 
-static bool destroy(AL_TAllocator* handle)
+static void destroy(AL_TAllocator* handle)
 {
   auto self = (AllocatorTracker*)handle;
-  bool success = AL_Allocator_Destroy(self->realAllocator);
+  AL_Allocator_Destroy(self->realAllocator);
   cout << "total dma used : " << self->size << " bytes, " << bytes_to_megabytes(self->size) << "MB" << endl;
 
-  if(self->mode == detailedMode)
+  if(self->mode == AL_DETAILED_MODE)
   {
     for(auto& alloc : self->allocs)
     {
@@ -50,7 +53,7 @@ static bool destroy(AL_TAllocator* handle)
         for(auto const& size : sizes)
         {
           if(size != firstSize)
-            return false;
+            return;
         }
       }
 
@@ -81,7 +84,6 @@ static bool destroy(AL_TAllocator* handle)
   }
 
   delete self;
-  return success;
 }
 
 static AL_HANDLE allocNamed(AL_TAllocator* handle, size_t size, char const* name)
@@ -127,7 +129,7 @@ static void syncForDevice(AL_TAllocator* handle, AL_VADDR pVirtualAddr, size_t z
   return AL_Allocator_SyncForDevice(self->realAllocator, pVirtualAddr, zSize);
 }
 
-const AL_AllocatorVtable trackerVtable =
+AL_TAllocatorVTable constexpr trackerVtable =
 {
   destroy,
   alloc,
@@ -144,6 +146,6 @@ AL_TAllocator* createAllocatorTracker(AL_TAllocator* pAllocator)
   auto tracker = new AllocatorTracker;
   tracker->vtable = &trackerVtable;
   tracker->realAllocator = pAllocator;
-  tracker->mode = detailedMode;
+  tracker->mode = AL_DETAILED_MODE;
   return (AL_TAllocator*)tracker;
 }

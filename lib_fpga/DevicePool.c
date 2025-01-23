@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include <malloc.h>
@@ -7,15 +7,14 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include "lib_rtos/lib_rtos.h"
-#include "lib_assert/al_assert.h"
 
 #include "DevicePool.h"
 
 struct FileDesc
 {
   char* filename;
-  int iRefCount;
-  int fd;
+  int32_t iRefCount;
+  int32_t fd;
 };
 
 #define POOL_SIZE 32
@@ -43,7 +42,7 @@ static void DevicePool_Deinit(struct DevicePool* pDP)
   pDP->pLock = NULL;
 }
 
-static struct FileDesc* DevicePool_FindEntryByFd(struct DevicePool* pDP, int fd)
+static struct FileDesc* DevicePool_FindEntryByFd(struct DevicePool* pDP, int32_t fd)
 {
   size_t i;
   struct FileDesc* pCur;
@@ -91,9 +90,9 @@ static struct FileDesc* DevicePool_FindFreeEntry(struct DevicePool* pDP)
   return NULL;
 }
 
-static int DevicePool_Open(struct DevicePool* pDP, const char* filename)
+static int32_t DevicePool_Open(struct DevicePool* pDP, const char* filename)
 {
-  int iRet = 0;
+  int32_t iRet = 0;
   struct FileDesc* pCur;
 
   Rtos_GetMutex(pDP->pLock);
@@ -129,10 +128,10 @@ static int DevicePool_Open(struct DevicePool* pDP, const char* filename)
   return iRet;
 }
 
-static int DevicePool_Close(struct DevicePool* pDP, int fd)
+static int32_t DevicePool_Close(struct DevicePool* pDP, int32_t fd)
 {
   struct FileDesc* pEntry;
-  int iRet = 0;
+  int32_t iRet = 0;
   Rtos_GetMutex(pDP->pLock);
 
   pEntry = DevicePool_FindEntryByFd(pDP, fd);
@@ -144,7 +143,7 @@ static int DevicePool_Close(struct DevicePool* pDP, int fd)
     goto exit;
   }
 
-  AL_Assert(pEntry->iRefCount > 0);
+  Rtos_Assert(pEntry->iRefCount > 0);
 
   pEntry->iRefCount -= 1;
 
@@ -159,8 +158,6 @@ static int DevicePool_Close(struct DevicePool* pDP, int fd)
 
   return iRet;
 }
-
-///////////////////////////////////////////////////////////////////////////////
 
 #include <stdlib.h>
 
@@ -180,7 +177,7 @@ bool AL_DevicePool_Init(void)
   return DevicePool_Init(&g_DevicePool);
 }
 
-int AL_DevicePool_Open(const char* filename)
+int32_t AL_DevicePool_Open(const char* filename)
 {
   if(!g_DevicePoolInit)
   {
@@ -191,7 +188,7 @@ int AL_DevicePool_Open(const char* filename)
   return DevicePool_Open(&g_DevicePool, filename);
 }
 
-int AL_DevicePool_Close(int fd)
+int32_t AL_DevicePool_Close(int32_t fd)
 {
   return DevicePool_Close(&g_DevicePool, fd);
 }

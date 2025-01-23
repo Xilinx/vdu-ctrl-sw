@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -6,15 +6,15 @@
 #define MAX_LOG_LABEL_SIZE 32
 
 typedef struct AL_ILogger AL_ILogger;
-typedef struct
+typedef struct AL_TLoggerVTable
 {
   void (* pfnLog)(AL_ILogger* logger, char const label[MAX_LOG_LABEL_SIZE]);
   void (* pfnDeinit)(AL_ILogger* logger);
-}AL_ILoggerVtable;
+}AL_TLoggerVTable;
 
 struct AL_ILogger
 {
-  AL_ILoggerVtable const* vtable;
+  AL_TLoggerVTable const* vtable;
 };
 
 static inline void AL_ILogger_Log(AL_ILogger* logger, char const label[MAX_LOG_LABEL_SIZE])

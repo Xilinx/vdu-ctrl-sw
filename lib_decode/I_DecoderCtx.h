@@ -1,11 +1,9 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
-/****************************************************************************
-   -----------------------------------------------------------------------------
- **************************************************************************//*!
+/******************************************************************************
    \addtogroup lib_decode_hls
-   @{
+   !@{
    \file
  *****************************************************************************/
 
@@ -23,6 +21,7 @@
 #include "lib_decode/I_DecScheduler.h"
 #include "lib_decode/DecoderFrameCtx.h"
 #include "lib_decode/lib_decode.h"
+#include "lib_decode/SearchDecUnit.h"
 
 typedef enum
 {
@@ -48,7 +47,7 @@ typedef struct
   AL_ENut eob;
 }AL_NonVclNuts;
 
-typedef struct t_Dec_Ctx AL_TDecCtx;
+typedef struct AL_TDecCtx AL_TDecCtx;
 
 typedef struct
 {
@@ -60,7 +59,7 @@ typedef struct
   AL_PARSE_RESULT (* parsePh)(AL_TAup*, AL_TRbspParser*, AL_TDecCtx*);
   bool (* parseSei)(AL_TAup*, AL_TRbspParser*, bool, AL_CB_ParsedSei*, AL_TSeiMetaData* pMeta);
   // return false when there is nothing to process
-  bool (* decodeSliceData)(AL_TAup*, AL_TDecCtx*, AL_ENut, bool, int*);
+  bool (* decodeSliceData)(AL_TAup*, AL_TDecCtx*, AL_ENut, bool, int32_t*);
   bool (* isSliceData)(AL_ENut nut);
   void (* finishPendingRequest)(AL_TDecCtx*);
   AL_NonVclNuts (* getNonVclNuts)(void);
@@ -78,17 +77,17 @@ typedef struct
   TBuffer ScdBufOut;
 }AL_TDecScdBuffers;
 
-/*************************************************************************//*!
+/*****************************************************************************
    \brief Decoder Context structure
 *****************************************************************************/
-struct t_Dec_Ctx
+struct AL_TDecCtx
 {
   AL_TFeeder* Feeder;
   AL_EDecInputMode eInputMode;
 
   TBuffer BufNoAE;            // Deanti-Emulated buffer used for high level syntax parsing
-  TCircBuffer Stream;             // Input stream buffer
-  TCircBuffer NalStream;
+  AL_TCircBuffer Stream;             // Input stream buffer
+  AL_TCircBuffer NalStream;
   AL_TBuffer* pInputBuffer;     // keep a reference to input buffer and its meta data
 
   // decoder IP handle
@@ -96,6 +95,7 @@ struct t_Dec_Ctx
   AL_HANDLE hChannel;
   AL_HANDLE hStartCodeChannel;
   AL_TAllocator* pAllocator;
+  AL_EVENT hDecOutSettingsConfiguredEvt;
   AL_EChanState eChanState;
 
   AL_TDecCallBacks tDecCB;
@@ -107,56 +107,56 @@ struct t_Dec_Ctx
 
   // Start code members
   TBuffer BufSCD;             // Holds the Start Code Detector Table results
-  TBuffer SCTable;            //
-  uint16_t uNumSC;             //
   AL_TScStatus ScdStatus;
+  TBuffer SCTable;
+  AL_TDecUnitSearchCtx SearchCtx;
 
-  AL_TDecPicBufferAddrs BufAddrs;
+  AL_TDecBufferAddrs BufAddrs;
   // decoder pool buffer
-  TBuffer PoolSclLst[MAX_STACK_SIZE];      // Scaling List pool buffer
-  TBuffer PoolCompData[MAX_STACK_SIZE];    // compressed MVDs + header + residuals pool buffer
-  TBuffer PoolCompMap[MAX_STACK_SIZE];     // Compression map : LCU size + LCU offset pool buffer
-  TBuffer PoolWP[MAX_STACK_SIZE];          // Weighted Pred Tables pool buffer
-  TBuffer PoolListRefAddr[MAX_STACK_SIZE]; // Reference addresses for the board pool buffer
-  TBuffer PoolVirtRefAddr[MAX_STACK_SIZE]; // Reference addresses for the reference pool buffer
+  TBuffer PoolSclLst[AL_DEC_SW_MAX_STACK_SIZE];      // Scaling List pool buffer
+  TBuffer PoolCompData[AL_DEC_SW_MAX_STACK_SIZE];    // compressed MVDs + header + residuals pool buffer
+  TBuffer PoolCompMap[AL_DEC_SW_MAX_STACK_SIZE];     // Compression map : LCU size + LCU offset pool buffer
+  TBuffer PoolWP[AL_DEC_SW_MAX_STACK_SIZE];          // Weighted Pred Tables pool buffer
+  TBuffer PoolListRefAddr[AL_DEC_SW_MAX_STACK_SIZE]; // Reference addresses for the board pool buffer
+  TBuffer PoolVirtRefAddr[AL_DEC_SW_MAX_STACK_SIZE]; // Reference addresses for the reference pool buffer
 
   TBufferListRef ListRef;            // Picture Reference List buffer
 
   // slice toggle management
-  TBuffer PoolSP[MAX_STACK_SIZE]; // Slice parameters
-  AL_TDecPicParam PoolPP[MAX_STACK_SIZE]; // Picture parameters
-  AL_TDecPicBuffers PoolPB[MAX_STACK_SIZE]; // Picture Buffers
+  TBuffer PoolSP[AL_DEC_SW_MAX_STACK_SIZE]; // Slice parameters
+  AL_TDecPicParam PoolPP[AL_DEC_SW_MAX_STACK_SIZE]; // Picture parameters
+  AL_TDecBuffers PoolPB[AL_DEC_SW_MAX_STACK_SIZE]; // Picture Buffers
   uint8_t uCurID; // ID of the last independent slice
 
   AL_TDecChanParam* pChanParam;
   AL_EDpbMode eDpbMode;
-  int iStackSize;
+  int32_t iStackSize;
   bool bForceFrameRate;
   bool bIntraOnlyProfile;
   bool bStillPictureProfile;
 
   // Trace stuff
   char sTracePrefix[8];
-  int iTraceFirstFrame;
-  int iTraceLastFrame;
-  int iTraceCounter;
+  int32_t iTraceFirstFrame;
+  int32_t iTraceLastFrame;
+  int32_t iTraceCounter;
   bool bShouldPrintFrameDelimiter;
 
   // stream context status
   bool bFirstIsValid;
   bool bIsFirstPicture;
-  int iStreamOffset[MAX_STACK_SIZE];
-  int iCurOffset;
-  int iCurNalStreamOffset;
-  uint32_t uCurPocLsb;
+  int32_t iStreamOffset[AL_DEC_SW_MAX_STACK_SIZE];
+  int32_t iCurOffset;
+  int32_t iCurNalStreamOffset;
+  int32_t iCurPocLsb;
   union
   {
     uint8_t uNoRaslOutputFlag;
-    uint8_t uNoIncorrectPicOutputFlag;
+    uint8_t uNoOutputBeforeRecoveryFlag;
   };
-  uint8_t uFrameIDRefList[MAX_STACK_SIZE][AL_MAX_NUM_REF];
-  uint8_t uMvIDRefList[MAX_STACK_SIZE][AL_MAX_NUM_REF];
-  uint8_t uNumRef[MAX_STACK_SIZE];
+  uint8_t uFrameIDRefList[AL_DEC_SW_MAX_STACK_SIZE][AL_MAX_NUM_REF];
+  uint8_t uMvIDRefList[AL_DEC_SW_MAX_STACK_SIZE][AL_MAX_NUM_REF];
+  uint8_t uNumRef[AL_DEC_SW_MAX_STACK_SIZE];
 
   // CurrentFrame context
   AL_TDecFrameCtx tCurrentFrameCtx;
@@ -172,8 +172,8 @@ struct t_Dec_Ctx
 
   // decoder counters
   uint16_t uToggle;
-  int iNumFrmBlk1;
-  int iNumFrmBlk2;
+  int32_t iNumFrmBlk1;
+  int32_t iNumFrmBlk2;
 
   // reference frames and dpb manager
   AL_TPictMngrCtx PictMngr;
@@ -191,14 +191,14 @@ struct t_Dec_Ctx
   AL_TStreamSettings tInitialStreamSettings;
   AL_TBuffer* eosBuffer;
 
-  int iNumSlicesRemaining;
+  int32_t iNumSlicesRemaining;
 
   AL_TPosition tOutputPosition;
 
-  TMemDesc tMDChanParam;
+  AL_TMemDesc tMDChanParam;
   AL_NalParser parser;
 };
 
 /****************************************************************************/
 
-/*@}*/
+/*!@}*/

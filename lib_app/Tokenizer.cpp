@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "lib_app/Tokenizer.h"
@@ -31,11 +31,11 @@ static bool isComma(char c)
   return c == ',' || c == '.';
 }
 
-Token Tokenizer::getToken()
+Token Tokenizer::getToken(void)
 {
   Token token {};
   char c = getNextChar();
-  int startPos = curPos - 1;
+  int32_t startPos = curPos - 1;
   token.text = string(1, c);
   token.position = getPosition();
 
@@ -85,14 +85,14 @@ Token Tokenizer::getToken()
   return token;
 }
 
-std::pair<int, int> Tokenizer::getPosition()
+std::pair<int, int> Tokenizer::getPosition(void)
 {
   return {
            line, curPos - columnStartPos
   };
 }
 
-Token & Tokenizer::tokenizeIdentifier(Token& token, int startPos)
+Token & Tokenizer::tokenizeIdentifier(Token& token, int32_t startPos)
 {
   while(std::isalnum(getChar(curPos)) || getChar(curPos) == '_' || getChar(curPos) == '.')
     ++curPos;
@@ -102,7 +102,7 @@ Token & Tokenizer::tokenizeIdentifier(Token& token, int startPos)
   return token;
 }
 
-Token & Tokenizer::tokenizeHexToken(Token& token, int startPos)
+Token & Tokenizer::tokenizeHexToken(Token& token, int32_t startPos)
 {
   while(std::isxdigit(getChar(curPos)))
     ++curPos;
@@ -112,7 +112,7 @@ Token & Tokenizer::tokenizeHexToken(Token& token, int startPos)
   return token;
 }
 
-Token & Tokenizer::tokenizeNumberToken(Token& token, int startPos)
+Token & Tokenizer::tokenizeNumberToken(Token& token, int32_t startPos)
 {
   token.type = TokenType::Integral;
 
@@ -150,14 +150,14 @@ Token & Tokenizer::tokenizeNumberToken(Token& token, int startPos)
   return token;
 }
 
-char Tokenizer::getChar(int pos)
+char Tokenizer::getChar(int32_t pos)
 {
   if(pos > (int)toParse.length())
     return '\0';
   return toParse[pos];
 }
 
-char Tokenizer::getNextChar()
+char Tokenizer::getNextChar(void)
 {
   while(std::isblank(getChar(curPos)))
     ++curPos;

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Allegro DVT <github-ip@allegrodvt.com>
+// SPDX-FileCopyrightText: © 2025 Allegro DVT <github-ip@allegrodvt.com>
 // SPDX-License-Identifier: MIT
 
 #include "DecoderFeeder.h"
@@ -9,8 +9,8 @@
 void AL_Default_Decoder_WaitFrameSent(AL_HDecoder hDec, uint32_t uStreamOffset);
 
 extern UNIT_ERROR AL_Decoder_TryDecodeOneUnit(AL_HDecoder hDec, AL_TBuffer* pBufStream);
-extern int AL_Decoder_GetDecodedStrOffset(AL_HANDLE hDec);
-extern int AL_Decoder_SkipParsedUnits(AL_HANDLE hDec);
+extern int32_t AL_Decoder_GetDecodedStrOffset(AL_HANDLE hDec);
+extern int32_t AL_Decoder_SkipParsedUnits(AL_HANDLE hDec);
 extern void AL_Decoder_FlushInput(AL_HDecoder hDec);
 extern void AL_Decoder_InternalFlush(AL_HDecoder hDec);
 
@@ -224,7 +224,7 @@ AL_TDecoderFeeder* AL_DecoderFeeder_Create(AL_TBuffer* stream, AL_HANDLE hDec, A
 
   if(!AL_Buffer_AddMetaData(pDecFeeder->startCodeStreamView, (AL_TMetaData*)pMeta))
   {
-    Rtos_Free(pMeta);
+    AL_MetaData_Destroy((AL_TMetaData*)pMeta);
     goto fail_;
   }
 
