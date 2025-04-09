@@ -729,7 +729,7 @@ static bool decodeSliceData(AL_TAup* pIAUP, AL_TDecCtx* pCtx, AL_ENut eNUT, bool
   AL_TDecSliceParam* pSP = &(((AL_TDecSliceParam*)pCtx->PoolSP[pCtx->uToggle].tMD.pVirtualAddr)[pFrmCtx->uNumSlice]);
 
   if(isSliceHdrValid && !pSlice->pSPS->bConceal && pCtx->bAreBuffersAllocated &&
-     !(pFrmCtx->bFirstSliceValid) && pSlice->first_mb_in_slice)
+     !(pFrmCtx->bFirstSliceValid) && pSlice->first_mb_in_slice  && !pCtx->tCurrentStreamSettings.bDecodeIntraOnly)
   {
     createConcealSlice(pCtx, pPP, pSP, pSlice);
 

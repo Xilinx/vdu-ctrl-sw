@@ -877,6 +877,9 @@ static bool decodeSliceData(AL_TAup* pIAUP, AL_TDecCtx* pCtx, AL_ENut eNUT, bool
       bool bClearRef = (bIsRAP && pCtx->uNoRaslOutputFlag); // IRAP picture with NoRaslOutputFlag = 1
       bool bNoOutputPrior = (AL_HEVC_IsCRA(eNUT) || ((AL_HEVC_IsIDR(eNUT) || AL_HEVC_IsBLA(eNUT)) && pSlice->no_output_of_prior_pics_flag));
 
+      if(pStreamSettings->bDecodeIntraOnly)
+        bClearRef = true;
+
       AL_HEVC_PictMngr_ClearDPB(&pCtx->PictMngr, pSlice->pSPS, bClearRef, bNoOutputPrior);
     }
 
@@ -884,7 +887,7 @@ static bool decodeSliceData(AL_TAup* pIAUP, AL_TDecCtx* pCtx, AL_ENut eNUT, bool
       isValid = false;
     else if(isValid && !pFrmCtx->bFirstSliceValid && pSlice->slice_segment_address)
     {
-      if(pSlice->slice_segment_address <= (int)pSP->NextSliceSegment)
+      if(pSlice->slice_segment_address <= (int)pSP->NextSliceSegment && !pStreamSettings->bDecodeIntraOnly)
       {
         createConcealSlice(pCtx, pPP, pSP, pSlice);
 
