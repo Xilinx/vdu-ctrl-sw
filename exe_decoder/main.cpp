@@ -1412,6 +1412,20 @@ void SafeRunChannelMain(WorkerConfig& w)
   bool bShouldUseGoto = false;
   {
 
+  // Refresh device and allocator before constructing DecoderContext on the retry path.
+  // ConfigureMcu() (called inside SelectNextDevice) reassigns m_pAllocator (shared_ptr),
+  // which destroys the old allocator via AL_Allocator_Destroy. Constructing DecoderContext
+  // before this point would leave it with a stale freed pointer, causing a use-after-free
+  // (SIGSEGV) in CreateBaseDecoder and SetupBaseDecoderPool.
+  bool bIsRetry = false;
+  if(config.UseBaseDecoder() && config.bSelectDeviceWithLowestAvailableResources && bFindNextDevice)
+  {
+    pIpDevice->SelectNextDevice();
+    pAllocator = pIpDevice->GetAllocator();
+    bFindNextDevice = false;
+    bIsRetry = true;
+  }
+
   // Configure the decoders
   // ----------------------
   DecoderContext tDecCtx(config, pAllocator);
@@ -1422,13 +1436,8 @@ void SafeRunChannelMain(WorkerConfig& w)
   {
     shared_ptr<I_IpDevice> device = w.devices->at(DEVICE_BASE_DECODER);
 
-    if(config.bSelectDeviceWithLowestAvailableResources && bFindNextDevice)
-    {
+    if(bIsRetry)
       tDecCtx.SetPushBackToDecoder();
-      pIpDevice->SelectNextDevice();
-      pAllocator = pIpDevice->GetAllocator();
-      bFindNextDevice = false;
-    }
 
     tDecCtx.CreateBaseDecoder(device);
   }

@@ -39,6 +39,16 @@ std::shared_ptr<AL_TAllocator> CreateProxyAllocator(char const*)
 
 void CIpDevice::ConfigureMcu(AL_TDriver* driver, bool useProxy)
 {
+  // Destroy the existing scheduler before replacing it to avoid a resource leak
+  // when ConfigureMcu() is called again via SelectNextDevice() on device failover.
+  // The destructor already guards with if(m_pScheduler), so setting m_pScheduler
+  // to nullptr here prevents a double-destroy there.
+  if(m_pScheduler)
+  {
+    AL_IDecScheduler_Destroy(m_pScheduler);
+    m_pScheduler = nullptr;
+  }
+
   if(useProxy)
     m_pAllocator = CreateProxyAllocator(this->m_tSelectedDevice.c_str());
   else
